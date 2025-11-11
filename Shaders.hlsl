@@ -312,7 +312,7 @@ GS_BILLBOARD_INPUT VSBillboard(VS_BILLBOARD_INPUT input)
 void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILLBOARD_INPUT> outputStream)
 {
     // 빌보드의 크기 (가로, 세로)
-	float2 size = float2(2.0f, 2.0f); // 이 값은 C++에서 상수 버퍼로 넘겨주는 것이 더 유연합니다.
+	float2 size = float2(4.0f, 4.0f); // 이 값은 C++에서 상수 버퍼로 넘겨주는 것이 더 유연합니다.
 
     // 카메라의 Up 벡터와 Right 벡터를 뷰 역행렬에서 추출
     // gmtxInverseView는 cbCameraInfo에 정의되어 있습니다.

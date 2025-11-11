@@ -9,6 +9,9 @@
 #include "BillboardShader.h"
 #include "PointMesh.h"
 #include "BillboardObject.h" // Added for CBillboardObject
+#include "UIRectMesh.h" // Added for UI Rect Mesh
+#include "ScreenQuadMesh.h" // Added for Screen Quad Mesh (for background)
+#include "UIShader.h" // Added for UI Shader
 
 #define MAX_LIGHTS			16 
 
@@ -23,7 +26,7 @@ struct LIGHT
 	XMFLOAT4				m_xmf4Specular;
 	XMFLOAT3				m_xmf3Position;
 	float 					m_fFalloff;
-	XMFLOAT3				m_xmf3Direction;
+	XMFLOAT3				m_xmf3Direction; // Corrected: Added m_xmf3Direction
 	float 					m_fTheta; //cos(m_fTheta)
 	XMFLOAT3				m_xmf3Attenuation;
 	float					m_fPhi; //cos(m_fPhi)
@@ -96,6 +99,18 @@ public:
 	void ReleaseUploadBuffers();
 
 	CPlayer								*m_pPlayer = NULL;
+
+	CGameObject* m_pStartButtonObject = NULL;
+	CGameObject* m_pExitButtonObject = NULL;
+	CGameObject* m_pStartButtonHoverObject = NULL; // New: Larger object for start button hover
+	CGameObject* m_pExitButtonHoverObject = NULL; // New: Larger object for exit button hover
+	CGameObject* m_pHoveredObject = NULL; // New: To track currently hovered UI object
+	CTexture* m_pStartButtonDefaultTexture = NULL; // New: Default texture for start button
+	CTexture* m_pExitButtonDefaultTexture = NULL; // New: Default texture for exit button
+	CGameObject* m_pBackgroundObject = NULL; // New: Background object for main menu
+
+	CGameObject* PickObjectByRayIntersection(XMFLOAT3& xmf3PickPosition, XMFLOAT4X4& xmf4x4View);
+	void UpdateUIButtons(float fTimeElapsed); // New: Function to update UI button states
 
 protected:
 	CGameFramework						*m_pGameFramework = NULL;

@@ -25,6 +25,26 @@ D3D12_INPUT_LAYOUT_DESC CUIShader::CreateInputLayout()
 	return(d3dInputLayoutDesc);
 }
 
+D3D12_RASTERIZER_DESC CUIShader::CreateRasterizerState()
+{
+	D3D12_RASTERIZER_DESC d3dRasterizerDesc = CShader::CreateRasterizerState();
+	d3dRasterizerDesc.CullMode = D3D12_CULL_MODE_NONE; // Disable culling for UI
+	return(d3dRasterizerDesc);
+}
+
+D3D12_BLEND_DESC CUIShader::CreateBlendState()
+{
+	D3D12_BLEND_DESC d3dBlendDesc = CShader::CreateBlendState();
+	d3dBlendDesc.RenderTarget[0].BlendEnable = TRUE;
+	d3dBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	d3dBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	d3dBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	d3dBlendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
+	d3dBlendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
+	d3dBlendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	return(d3dBlendDesc);
+}
+
 D3D12_DEPTH_STENCIL_DESC CUIShader::CreateDepthStencilState()
 {
 	D3D12_DEPTH_STENCIL_DESC d3dDepthStencilDesc;

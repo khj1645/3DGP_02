@@ -519,8 +519,13 @@ void CGameObject::SetPosition(XMFLOAT3 xmf3Position)
 
 void CGameObject::SetScale(float x, float y, float z)
 {
-	XMMATRIX mtxScale = XMMatrixScaling(x, y, z);
-	m_xmf4x4Transform = Matrix4x4::Multiply(mtxScale, m_xmf4x4Transform);
+	XMMATRIX currentTransform = XMLoadFloat4x4(&m_xmf4x4Transform);
+	XMVECTOR scale, rotation, translation;
+	XMMatrixDecompose(&scale, &rotation, &translation, currentTransform);
+
+	XMMATRIX newScaleMatrix = XMMatrixScaling(x, y, z);
+	XMMATRIX newTransform = XMMatrixRotationQuaternion(rotation) * newScaleMatrix * XMMatrixTranslationFromVector(translation);
+	XMStoreFloat4x4(&m_xmf4x4Transform, newTransform);
 
 	UpdateTransform(NULL);
 }

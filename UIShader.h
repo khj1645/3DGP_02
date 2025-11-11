@@ -8,6 +8,8 @@ public:
 	virtual ~CUIShader();
 
 	virtual D3D12_INPUT_LAYOUT_DESC CreateInputLayout();
+	virtual D3D12_RASTERIZER_DESC CreateRasterizerState(); // Add this line
+	virtual D3D12_BLEND_DESC CreateBlendState() override;
 	virtual D3D12_DEPTH_STENCIL_DESC CreateDepthStencilState();
 
 	virtual D3D12_SHADER_BYTECODE CreateVertexShader();

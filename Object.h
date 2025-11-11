@@ -224,6 +224,7 @@ public:
 	int FindReplicatedTexture(_TCHAR* pstrTextureName, D3D12_GPU_DESCRIPTOR_HANDLE* pd3dSrvGpuDescriptorHandle);
 
 	UINT GetMeshType(UINT nIndex) { return((m_ppMeshes[nIndex]) ? m_ppMeshes[nIndex]->GetType() : 0x00); }
+	CMesh* GetMesh(int nIndex) const { return m_ppMeshes[nIndex]; }
 
 public:
 	void LoadMaterialsFromFile(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature, CGameObject *pParent, FILE *pInFile, CShader* pShader);

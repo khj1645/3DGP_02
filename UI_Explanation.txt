@@ -1,0 +1,68 @@
+## UI (사용자 인터페이스) 설명: 시작 및 종료 버튼
+
+이 문서는 프로젝트에 구현된 메인 메뉴의 시작(Start) 및 종료(Exit) UI 버튼에 대한 상세 설명을 제공합니다.
+
+### 1. UI 버튼의 목적
+- **시작(Start) 버튼:** 게임의 메인 메뉴에서 게임 플레이 씬(`GameState::InGame`)으로 전환하는 역할을 합니다.
+- **종료(Exit) 버튼:** 게임 애플리케이션을 종료하는 역할을 합니다.
+
+### 2. 구현 개요
+UI 버튼은 `CGameObject` 인스턴스로 구현되었으며, `CUIRectMesh`를 사용하여 2D 사각형 형태를 가집니다. 각 버튼은 `CTexture`를 통해 시각적 요소를 가지며, `CUIShader`를 통해 렌더링됩니다. 마우스 상호작용(호버 및 클릭)은 `CScene` 클래스에서 처리됩니다.
+
+### 3. 주요 구성 요소 및 구현 상세
+
+#### 3.1. `CUIRectMesh` (UIRectMesh.h, UIRectMesh.cpp)
+- **역할:** 화면 공간에 2D 사각형 메시를 생성합니다.
+- **특징:** 생성 시 정규화된 화면 좌표(x, y, width, height)를 받아 NDC(Normalized Device Coordinates)로 변환하여 메시를 구성합니다. 이는 UI 요소의 위치와 크기를 화면 해상도에 독립적으로 정의할 수 있게 합니다.
+
+#### 3.2. `CUIShader` (UIShader.h, UIShader.cpp, Shaders.hlsl)
+- **역할:** UI 요소(버튼, 배경 등)를 렌더링하기 위한 전용 셰이더입니다.
+- **특징:**
+    - **입력 레이아웃:** 위치(POSITION)와 텍스처 좌표(TEXCOORD)를 받습니다.
+    - **래스터라이저 상태:** `D3D12_CULL_MODE_NONE`으로 설정하여 컬링을 비활성화합니다. 2D UI는 양면 렌더링이 필요할 수 있기 때문입니다.
+    - **블렌드 상태:** 알파 블렌딩을 활성화하여 텍스처의 투명도를 지원합니다 (`D3D12_BLEND_SRC_ALPHA`, `D3D12_BLEND_INV_SRC_ALPHA`).
+    - **깊이/스텐실 상태:** 깊이 테스트 및 쓰기를 비활성화합니다 (`DepthEnable = FALSE`). UI는 일반적으로 3D 씬 위에 렌더링되므로 깊이 테스트가 필요 없습니다.
+    - **루트 시그니처:** UI 텍스처를 위한 `D3D12_DESCRIPTOR_RANGE_TYPE_SRV` (t0)와 월드 변환 행렬을 위한 `D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS` (b0)를 포함합니다.
+
+#### 3.3. `CTexture` 및 텍스처 파일
+- **사용된 텍스처:**
+    - `UI/Background.dds`: 메인 메뉴의 배경 이미지로 사용됩니다.
+    - `UI/start.dds`: 시작 버튼의 기본 이미지로 사용됩니다.
+    - `UI/exit.dds`: 종료 버튼의 기본 이미지로 사용됩니다.
+- **관리:** `CTexture` 클래스는 텍스처 리소스를 로드하고 관리합니다. `CScene::CreateShaderResourceView`를 통해 셰이더 리소스 뷰(SRV)가 생성됩니다.
+
+#### 3.4. `CGameObject` (Object.h, Object.cpp)
+- **역할:** UI 버튼 및 배경은 `CGameObject` 인스턴스로 생성됩니다.
+- **`SetScale` 메서드:** 객체의 로컬 변환 행렬(`m_xmf4x4Transform`)의 스케일 부분을 설정합니다. `XMMatrixDecompose`를 사용하여 기존 회전 및 변환을 유지하면서 새로운 스케일을 적용하고 행렬을 재구성합니다. `UpdateTransform`을 호출하여 월드 행렬(`m_xmf4x4World`)을 업데이트합니다.
+
+#### 3.5. `CScene` (Scene.h, Scene.cpp)
+- **`BuildObjects`:**
+    - `CUIShader` 인스턴스를 생성하고 `m_ppShaders` 배열에 추가합니다.
+    - `m_pBackgroundObject`를 `CScreenQuadMesh`와 `UI/Background.dds` 텍스처로 생성합니다.
+    - `m_pStartButtonObject`, `m_pExitButtonObject` (기본 버튼)를 `CUIRectMesh`와 `UI/start.dds`, `UI/exit.dds` 텍스처로 생성합니다.
+    - **호버 효과를 위한 추가 객체:** `m_pStartButtonHoverObject`, `m_pExitButtonHoverObject`를 생성합니다. 이들은 기본 버튼보다 약간 더 큰 `CUIRectMesh` (예: 1.1배 스케일)를 가지며, 동일한 `UI/start.dds`, `UI/exit.dds` 텍스처를 사용합니다.
+- **`ReleaseObjects`:** 생성된 모든 UI 관련 `CGameObject` 및 `CTexture` 객체를 올바르게 해제합니다. `CTexture`의 이중 해제 문제를 방지하기 위해 `CScene`에서 직접 `CTexture` 객체를 해제하는 코드는 제거되었습니다.
+- **`AnimateObjects`:** `UpdateUIButtons` 함수를 호출하여 UI 버튼의 상태를 업데이트합니다.
+- **`UpdateUIButtons`:**
+    - `GameState`가 `MainMenu`일 때만 작동합니다.
+    - `OnProcessingMouseMessage`에서 설정된 `m_pHoveredObject`를 기반으로, 어떤 버튼이 호버 상태인지 추적합니다.
+    - **(수정됨)** 이전에는 `SetScale`을 사용했지만, 현재는 `Render` 함수에서 `m_pHoveredObject`에 따라 기본 버튼과 호버 버튼 중 어떤 것을 렌더링할지 결정하므로 이 함수 자체는 스케일 조정을 직접 수행하지 않습니다.
+- **`Render`:**
+    - `GameState`가 `MainMenu`일 때만 UI 요소를 렌더링합니다.
+    - `m_pBackgroundObject`를 먼저 렌더링합니다.
+    - `m_pHoveredObject`의 상태에 따라 `m_pStartButtonObject` 또는 `m_pStartButtonHoverObject`를 렌더링합니다. `m_pExitButtonObject`도 동일하게 처리됩니다.
+- **`PickObjectByRayIntersection`:**
+    - 마우스 커서의 화면 좌표(NDC)를 받아 UI 버튼의 경계 상자와 교차하는지 확인합니다.
+    - 교차하는 경우 해당 `CGameObject`를 `m_pHoveredObject`로 설정합니다.
+- **`OnProcessingMouseMessage`:**
+    - `WM_MOUSEMOVE` 메시지를 처리하여 마우스 커서의 위치를 기반으로 `PickObjectByRayIntersection`을 호출하고 `m_pHoveredObject`를 업데이트합니다.
+    - `WM_LBUTTONDOWN` 메시지를 처리하여:
+        - `m_pHoveredObject`가 `m_pStartButtonObject` 또는 `m_pStartButtonHoverObject`인 경우, `CGameFramework::SetGameState(GameState::InGame)`을 호출하여 게임 씬으로 전환합니다.
+        - `m_pHoveredObject`가 `m_pExitButtonObject` 또는 `m_pExitButtonHoverObject`인 경우, `PostQuitMessage(0)`을 호출하여 애플리케이션을 종료합니다.
+
+### 4. 호버 효과 구현 방식 (더 큰 객체 렌더링)
+- 마우스 커서가 버튼 위에 올라가면, 기존 버튼 객체의 크기를 동적으로 변경하는 대신, 미리 생성해 둔 약간 더 큰 크기의 "호버" 버튼 객체를 렌더링합니다.
+- `CScene::Render` 함수에서 `m_pHoveredObject`가 현재 마우스가 올라간 버튼 객체와 일치하는지 확인하고, 일치하면 해당 버튼의 호버 버전(`m_pStartButtonHoverObject` 또는 `m_pExitButtonHoverObject`)을 렌더링하고, 그렇지 않으면 기본 버전(`m_pStartButtonObject` 또는 `m_pExitButtonObject`)을 렌더링합니다.
+- 이 방식은 셰이더나 복잡한 행렬 조작 없이 시각적인 호버 피드백을 제공하는 간단하고 효과적인 방법입니다.
+
+이 설명이 프로젝트의 UI 구현을 이해하는 데 도움이 되기를 바랍니다.
