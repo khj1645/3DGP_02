@@ -17,12 +17,11 @@ CWaterObject::CWaterObject(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* 
     CTexture* pWaterTexture = new CTexture(3, RESOURCE_TEXTURE2D, 0, 1); // 3개의 텍스처, RESOURCE_TEXTURE2D 타입
 
     // 텍스처 파일 경로 및 할당된 레지스터 번호에 맞게 수정
-    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/Water_Base_Texture_0.dds", RESOURCE_TEXTURE2D, 0); // t37
-    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/Water_Detail_Texture_0.dds", RESOURCE_TEXTURE2D, 1); // t38
-    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/WaveFoam.dds", RESOURCE_TEXTURE2D, 2); // t39
+    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/Water_Base_Texture_0.dds", RESOURCE_TEXTURE2D, 0); // t6
+    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/Water_Detail_Texture_0.dds", RESOURCE_TEXTURE2D, 1); // t7
+    pWaterTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/WaveFoam.dds", RESOURCE_TEXTURE2D, 2); // t8
 
-    // CScene::CreateShaderResourceViews는 CScene의 정적 함수이므로 CScene:: 접두사 사용
-    // 0은 디스크립터 힙 오프셋, 13은 물 텍스처 디스크립터 테이블에 할당된 루트 파라미터 인덱스
+    
     CScene::CreateShaderResourceViews(pd3dDevice, pWaterTexture, 0, 13); 
     // 4. 물 셰이더는 외부에서 생성하여 전달받음
 
@@ -30,6 +29,19 @@ CWaterObject::CWaterObject(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* 
     CMaterial* pWaterMaterial = new CMaterial();
     pWaterMaterial->SetTexture(pWaterTexture);
     pWaterMaterial->SetShader(pWaterShader);     // 셰이더를 재질에 직접 할당하여 소유권 관리
+
+    // Explicitly ensure material array is set up, in case CGameObject constructor is not fully effective
+    if (m_nMaterials == 0) {
+        m_nMaterials = 1;
+        m_ppMaterials = new CMaterial*[m_nMaterials];
+        m_ppMaterials[0] = NULL;
+        
+    } else if (m_ppMaterials == NULL) {
+        m_ppMaterials = new CMaterial*[m_nMaterials];
+        m_ppMaterials[0] = NULL;
+        
+    }
+
     SetMaterial(0, pWaterMaterial); // CWaterObject에 재질 할당 (이 재질이 셰이더를 소유)
 }
 

@@ -21,7 +21,7 @@ cbuffer cbGameObjectInfo : register(b2)
 	uint					gnTexturesMask : packoffset(c8);
 };
 
-cbuffer cbWaterInfo : register(b5)
+cbuffer cbWaterInfo : register(b3)
 {
 	matrix		gf4x4TextureAnimation : packoffset(c0);
 };
@@ -55,20 +55,20 @@ struct VS_WATER_OUTPUT
 #define MATERIAL_DETAIL_ALBEDO_MAP	0x20
 #define MATERIAL_DETAIL_NORMAL_MAP	0x40
 
-Texture2D gtxtAlbedoTexture : register(t6);
-Texture2D gtxtSpecularTexture : register(t7);
-Texture2D gtxtNormalTexture : register(t8);
-Texture2D gtxtMetallicTexture : register(t9);
-Texture2D gtxtEmissionTexture : register(t10);
-Texture2D gtxtDetailAlbedoTexture : register(t11);
-Texture2D gtxtDetailNormalTexture : register(t12);
+Texture2D gtxtAlbedoTexture : register(t24);
+Texture2D gtxtSpecularTexture : register(t25);
+Texture2D gtxtNormalTexture : register(t26);
+Texture2D gtxtMetallicTexture : register(t27);
+Texture2D gtxtEmissionTexture : register(t28);
+Texture2D gtxtDetailAlbedoTexture : register(t29);
+Texture2D gtxtDetailNormalTexture : register(t30);
 
-Texture2D gtxtWaterBaseTexture : register(t20);
-Texture2D gtxtWaterDetail0Texture : register(t21);
-Texture2D gtxtWaterDetail1Texture : register(t22);
+Texture2D gtxtWaterBaseTexture : register(t6);
+Texture2D gtxtWaterDetail0Texture : register(t7);
+Texture2D gtxtWaterDetail1Texture : register(t8);
 
-SamplerState gssWrap : register(s0); // gssWrap (s0)을 재사용할 것이므로 주석 처리
-
+SamplerState gssWrap : register(s0);
+SamplerState gssClamp : register(s1);
 VS_WATER_OUTPUT VSTerrainWater(VS_WATER_INPUT input)
 {
     VS_WATER_OUTPUT output;
@@ -93,14 +93,13 @@ float4 PSTerrainWater(VS_WATER_OUTPUT input) : SV_TARGET
 	uv = mul(float3(input.uv, 1.0f), (float3x3)gf4x4TextureAnimation).xy;
 
 	// 텍스처 샘플링 (Detail 텍스처는 20배 타일링)
-	float4 cBaseTexColor = gtxtWaterBaseTexture.SampleLevel(gssWrap, uv, 0); // gssWrap (s0) 사용
-	float4 cDetail0TexColor = gtxtWaterDetail0Texture.SampleLevel(gssWrap, uv * 20.0f, 0); // gssWrap (s0) 사용
-	float4 cDetail1TexColor = gtxtWaterDetail1Texture.SampleLevel(gssWrap, uv * 20.0f, 0); // gssWrap (s0) 사용
+	float4 cBaseTexColor = gtxtWaterBaseTexture.SampleLevel(gssWrap, uv, 0);
+	float4 cDetail0TexColor = gtxtWaterDetail0Texture.SampleLevel(gssWrap, uv * 20.0f, 0);
+	float4 cDetail1TexColor = gtxtWaterDetail1Texture.SampleLevel(gssWrap, uv * 20.0f, 0);
 
 	// 최종 색상 조합
-	float4 cColor = (1.0f,0.0f,0.0f,1.0f);
-	//cColor.a = 0.5f; // Set a constant alpha for transparency
-
+	float4 cColor = lerp(cBaseTexColor * cDetail0TexColor, cDetail1TexColor.r * 0.5f, 0.35f);
+	//cColor.a = 1.0f;
 	return(cColor);
 }
 
@@ -125,16 +124,30 @@ struct VS_STANDARD_OUTPUT
 
 VS_STANDARD_OUTPUT VSStandard(VS_STANDARD_INPUT input)
 {
-	VS_STANDARD_OUTPUT output;
+    VS_STANDARD_OUTPUT output;
 
-	output.positionW = (float3)mul(float4(input.position, 1.0f), gmtxGameObject);
-	output.normalW = mul(input.normal, (float3x3)gmtxGameObject);
-	output.tangentW = (float3)mul(float4(input.tangent, 1.0f), gmtxGameObject);
-	output.bitangentW = (float3)mul(float4(input.bitangent, 1.0f), gmtxGameObject);
-	output.position = mul(mul(float4(output.positionW, 1.0f), gmtxView), gmtxProjection);
-	output.uv = input.uv;
+    // 위치(점) -> w=1
+    float4 posW = mul(float4(input.position, 1.0f), gmtxGameObject);
+    output.positionW = posW.xyz;
 
-	return(output);
+    // 방향 벡터 -> w=0  (평행이동 제외!)
+    output.tangentW   = normalize(mul((float3x3)gmtxGameObject, input.tangent));
+    output.bitangentW = normalize(mul((float3x3)gmtxGameObject, input.bitangent));
+    output.normalW    = normalize(mul((float3x3)gmtxGameObject, input.normal)); // 임시
+
+    // TBN을 직교화(특히 tangent)
+    float3 N = output.normalW;
+    float3 T = normalize(output.tangentW - N * dot(output.tangentW, N));
+    float3 B = normalize(cross(N, T));   // 입력 bitangent 대신 cross로 재구성(더 안정적)
+
+    // 저장할 땐 직교화된 걸 저장
+    output.tangentW   = T;
+    output.bitangentW = B;
+    output.normalW    = N;
+
+    output.position = mul(mul(posW, gmtxView), gmtxProjection);
+    output.uv = input.uv;
+    return output;
 }
 
 float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
@@ -154,16 +167,14 @@ float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
 	float4 cIllumination = float4(1.0f, 1.0f, 1.0f, 1.0f);
 	float4 cColor = cAlbedoColor + cSpecularColor + cEmissionColor;
 	if (gnTexturesMask & MATERIAL_NORMAL_MAP)
-	{
-		float3 normalW = input.normalW;
-		float3x3 TBN = float3x3(normalize(input.tangentW), normalize(input.bitangentW), normalize(input.normalW));
-		float3 vNormal = normalize(cNormalColor.rgb * 2.0f - 1.0f); //[0, 1]  [-1, 1]
-		normalW = normalize(mul(vNormal, TBN));
-		cIllumination = Lighting(input.positionW, normalW);
-		cColor = lerp(cColor, cIllumination, 0.5f);
-	}
-
-	return(cColor);
+    {
+        float3x3 TBN = float3x3(input.tangentW, input.bitangentW, input.normalW);
+        float3 vNormalTS = normalize(cNormalColor.rgb * 2.0f - 1.0f);
+        float3 normalW = normalize(mul(vNormalTS, TBN));
+        float4 cIllumination = Lighting(input.positionW, normalW);
+        cColor = lerp(cColor, cIllumination, 0.5f);
+    }
+    return cColor;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -190,7 +201,7 @@ VS_SKYBOX_CUBEMAP_OUTPUT VSSkyBox(VS_SKYBOX_CUBEMAP_INPUT input)
 }
 
 TextureCube gtxtSkyCubeTexture : register(t13);
-SamplerState gssClamp : register(s1);
+
 
 float4 PSSkyBox(VS_SKYBOX_CUBEMAP_OUTPUT input) : SV_TARGET
 {

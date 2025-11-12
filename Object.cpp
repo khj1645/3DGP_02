@@ -75,21 +75,12 @@ void CTexture::SetSampler(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSamplerGpuD
 
 void CTexture::UpdateShaderVariables(ID3D12GraphicsCommandList* pd3dCommandList)
 {
-	// 두 배열 중 하나라도 할당되지 않았으면 아무 작업도 수행하지 않습니다.
-	if (!m_pd3dSrvGpuDescriptorHandles || !m_pnRootParameterIndices) return;
-
-	// 두 배열 크기 중 더 작은 값을 기준으로 루프를 실행하여 배열 범위 초과 접근을 방지합니다.
-	int nLoopCount = min(m_nTextures, m_nRootParameters);
-	for (int i = 0; i < nLoopCount; i++)
-	{
-		UINT nRootParameterIndex = m_pnRootParameterIndices[i];
-		// 핸들 포인터가 유효하고, 루트 파라미터 인덱스가 설정되었으며, 유효한 범위 내에 있는지 확인합니다.
-		if (m_pd3dSrvGpuDescriptorHandles[i].ptr && (nRootParameterIndex != -1) && (nRootParameterIndex < 16))
-		{
-			
-			pd3dCommandList->SetGraphicsRootDescriptorTable(nRootParameterIndex, m_pd3dSrvGpuDescriptorHandles[i]);
-		}
-	}
+    // Assuming all textures managed by this CTexture object are part of a single descriptor table
+    // and share the same root parameter index (stored at index 0).
+    if (m_nTextures > 0 && m_pnRootParameterIndices[0] != -1 && m_pd3dSrvGpuDescriptorHandles[0].ptr)
+    {
+        pd3dCommandList->SetGraphicsRootDescriptorTable(m_pnRootParameterIndices[0], m_pd3dSrvGpuDescriptorHandles[0]);
+    }
 }
 
 void CTexture::UpdateShaderVariable(ID3D12GraphicsCommandList* pd3dCommandList, int nParameterIndex, int nTextureIndex)
@@ -434,10 +425,6 @@ void CGameObject::SetShader(int nMaterial, CShader *pShader)
 
 void CGameObject::SetMaterial(int nMaterial, CMaterial *pMaterial)
 {
-    TCHAR buffer[256];
-    _stprintf_s(buffer, L"CGameObject::SetMaterial() on CGameObject %p - Setting material[%d] from %p to %p\n", this, nMaterial, m_ppMaterials[nMaterial], pMaterial);
-    OutputDebugString(buffer);
-
 	if (m_ppMaterials[nMaterial]) m_ppMaterials[nMaterial]->Release();
 	m_ppMaterials[nMaterial] = pMaterial;
 	if (m_ppMaterials[nMaterial]) m_ppMaterials[nMaterial]->AddRef();
@@ -683,7 +670,7 @@ int CGameObject::FindReplicatedTexture(_TCHAR* pstrTextureName, D3D12_GPU_DESCRI
 	return(nParameterIndex);
 }
 
-void CGameObject::LoadMaterialsFromFile(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature, CGameObject *pParent, FILE *pInFile, CShader* pShader)
+void CGameObject::LoadMaterialsFromFile(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature, CGameObject* pParent, FILE* pInFile, CShader* pShader)
 {
 	char pstrToken[64] = { '\0' };
 
@@ -692,26 +679,26 @@ void CGameObject::LoadMaterialsFromFile(ID3D12Device *pd3dDevice, ID3D12Graphics
 
 	UINT nReads = (UINT)::fread(&m_nMaterials, sizeof(int), 1, pInFile);
 
-	m_ppMaterials = new CMaterial*[m_nMaterials];
+	m_ppMaterials = new CMaterial * [m_nMaterials];
 	for (int i = 0; i < m_nMaterials; i++) m_ppMaterials[i] = NULL;
 
-	CMaterial *pMaterial = NULL;
+	CMaterial* pMaterial = NULL;
 	CTexture* pTexture = NULL;
 
-	for ( ; ; )
+	for (; ; )
 	{
 		nReads = (UINT)::fread(&nStrLength, sizeof(BYTE), 1, pInFile);
-		nReads = (UINT)::fread(pstrToken, sizeof(char), nStrLength, pInFile); 
+		nReads = (UINT)::fread(pstrToken, sizeof(char), nStrLength, pInFile);
 		pstrToken[nStrLength] = '\0';
 
 		if (!strcmp(pstrToken, "<Material>:"))
 		{
 			nReads = (UINT)::fread(&nMaterial, sizeof(int), 1, pInFile);
 
-			pMaterial = new CMaterial(); 
+			pMaterial = new CMaterial();
 			pTexture = new CTexture(7, RESOURCE_TEXTURE2D, 0, 7); //0:Albedo, 1:Specular, 2:Metallic, 3:Normal, 4:Emission, 5:DetailAlbedo, 6:DetailNormal
 			pMaterial->SetTexture(pTexture);
-			if (!pShader) 
+			if (!pShader)
 			{
 				pShader = new CStandardShader();
 				pShader->CreateShader(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);

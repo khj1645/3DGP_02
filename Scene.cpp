@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // File: CScene.cpp
 //-----------------------------------------------------------------------------
 
@@ -102,8 +102,9 @@ void CScene::CreateShaderResourceViews(ID3D12Device* pd3dDevice, CTexture* pText
 		pTexture->SetGpuDescriptorHandle(i, m_pDescriptorHeap->m_d3dSrvGPUDescriptorNextHandle);
 		m_pDescriptorHeap->m_d3dSrvGPUDescriptorNextHandle.ptr += ::gnCbvSrvDescriptorIncrementSize;
 	}
-	int nRootParameters = pTexture->GetRootParameters();
-	for (int i = 0; i < nRootParameters; i++) pTexture->SetRootParameterIndex(i, nRootParameterStartIndex + i);
+	if (pTexture->GetTextures() > 0) {
+		pTexture->SetRootParameterIndex(0, nRootParameterStartIndex); // Set root parameter for the first texture
+	}
 }
 
 void CScene::CreateShaderResourceView(ID3D12Device* pd3dDevice, CTexture* pTexture, int nIndex, UINT nRootParameterStartIndex)
@@ -381,43 +382,43 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 
 	pd3dDescriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[0].NumDescriptors = 1;
-	pd3dDescriptorRanges[0].BaseShaderRegister = 6; //t6: gtxtAlbedoTexture
+	pd3dDescriptorRanges[0].BaseShaderRegister = 24; //t24: gtxtAlbedoTexture
 	pd3dDescriptorRanges[0].RegisterSpace = 0;
 	pd3dDescriptorRanges[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	pd3dDescriptorRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[1].NumDescriptors = 1;
-	pd3dDescriptorRanges[1].BaseShaderRegister = 7; //t7: gtxtSpecularTexture
+	pd3dDescriptorRanges[1].BaseShaderRegister = 25; //t25: gtxtSpecularTexture
 	pd3dDescriptorRanges[1].RegisterSpace = 0;
 	pd3dDescriptorRanges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	pd3dDescriptorRanges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[2].NumDescriptors = 1;
-	pd3dDescriptorRanges[2].BaseShaderRegister = 8; //t8: gtxtNormalTexture
+	pd3dDescriptorRanges[2].BaseShaderRegister = 26; //t26: gtxtNormalTexture
 	pd3dDescriptorRanges[2].RegisterSpace = 0;
 	pd3dDescriptorRanges[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	pd3dDescriptorRanges[3].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[3].NumDescriptors = 1;
-	pd3dDescriptorRanges[3].BaseShaderRegister = 9; //t9: gtxtMetallicTexture
+	pd3dDescriptorRanges[3].BaseShaderRegister = 27; //t27: gtxtMetallicTexture
 	pd3dDescriptorRanges[3].RegisterSpace = 0;
 	pd3dDescriptorRanges[3].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	pd3dDescriptorRanges[4].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[4].NumDescriptors = 1;
-	pd3dDescriptorRanges[4].BaseShaderRegister = 10; //t10: gtxtEmissionTexture
+	pd3dDescriptorRanges[4].BaseShaderRegister = 28; //t28: gtxtEmissionTexture
 	pd3dDescriptorRanges[4].RegisterSpace = 0;
 	pd3dDescriptorRanges[4].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	pd3dDescriptorRanges[5].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[5].NumDescriptors = 1;
-	pd3dDescriptorRanges[5].BaseShaderRegister = 11; //t11: gtxtDetailAlbedoTexture
+	pd3dDescriptorRanges[5].BaseShaderRegister = 29; //t29: gtxtDetailAlbedoTexture
 	pd3dDescriptorRanges[5].RegisterSpace = 0;
 	pd3dDescriptorRanges[5].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	pd3dDescriptorRanges[6].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[6].NumDescriptors = 1;
-	pd3dDescriptorRanges[6].BaseShaderRegister = 12; //t12: gtxtDetailNormalTexture
+	pd3dDescriptorRanges[6].BaseShaderRegister = 30; //t30: gtxtDetailNormalTexture
 	pd3dDescriptorRanges[6].RegisterSpace = 0;
 	pd3dDescriptorRanges[6].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
@@ -441,7 +442,7 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 
 	pd3dDescriptorRanges[10].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[10].NumDescriptors = 3; 
-	pd3dDescriptorRanges[10].BaseShaderRegister = 20; 
+	pd3dDescriptorRanges[10].BaseShaderRegister = 6; 
 	pd3dDescriptorRanges[10].RegisterSpace = 0;
 	pd3dDescriptorRanges[10].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
@@ -459,7 +460,7 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 	pd3dRootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	pd3dRootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-	pd3dRootParameters[1].Constants.Num32BitValues = 33;
+	pd3dRootParameters[1].Constants.Num32BitValues = 33; // 16 for matrix + 16 for material + 1 for mask = 33
 	pd3dRootParameters[1].Constants.ShaderRegister = 2; //GameObject
 	pd3dRootParameters[1].Constants.RegisterSpace = 0;
 	pd3dRootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
@@ -525,7 +526,7 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 	pd3dRootParameters[13].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 	pd3dRootParameters[14].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	pd3dRootParameters[14].Descriptor.ShaderRegister = 5;
+	pd3dRootParameters[14].Descriptor.ShaderRegister = 3;
 	pd3dRootParameters[14].Descriptor.RegisterSpace = 0;
 	pd3dRootParameters[14].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
@@ -573,10 +574,20 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 
 	ID3DBlob *pd3dSignatureBlob = NULL;
 	ID3DBlob *pd3dErrorBlob = NULL;
-	D3D12SerializeRootSignature(&d3dRootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &pd3dSignatureBlob, &pd3dErrorBlob);
+	HRESULT hr = D3D12SerializeRootSignature(&d3dRootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &pd3dSignatureBlob, &pd3dErrorBlob);
+
+    if (FAILED(hr)) {
+        OutputDebugString(L"D3D12SerializeRootSignature FAILED!\n");
+        if (pd3dErrorBlob) {
+            OutputDebugStringA((char*)pd3dErrorBlob->GetBufferPointer());
+            pd3dErrorBlob->Release();
+        }
+        return NULL; // Or handle more gracefully
+    }
+
 	pd3dDevice->CreateRootSignature(0, pd3dSignatureBlob->GetBufferPointer(), pd3dSignatureBlob->GetBufferSize(), __uuidof(ID3D12RootSignature), (void **)&pd3dGraphicsRootSignature);
 	if (pd3dSignatureBlob) pd3dSignatureBlob->Release();
-	if (pd3dErrorBlob) pd3dErrorBlob->Release();
+	// if (pd3dErrorBlob) pd3dErrorBlob->Release(); // Already released if it existed and failed
 
 	return(pd3dGraphicsRootSignature);
 }
@@ -812,7 +823,6 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 
 		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
-		if (m_pWater) m_pWater->Render(pd3dCommandList, pCamera);
 
 		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
 
@@ -822,5 +832,7 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 		{
 			if (m_ppBillboardObjects[i]) m_ppBillboardObjects[i]->Render(pd3dCommandList, pCamera);
 		}
+		if (m_pWater)
+			m_pWater->Render(pd3dCommandList, pCamera);
 	}
 }

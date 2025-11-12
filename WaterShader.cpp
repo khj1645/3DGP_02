@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "WaterShader.h"
 #include <wrl.h>
 #include <vector>
@@ -22,8 +22,11 @@ D3D12_INPUT_LAYOUT_DESC CWaterShader::CreateInputLayout()
     UINT nInputElementDescs = 2;
     D3D12_INPUT_ELEMENT_DESC* pd3dInputElementDescs = new D3D12_INPUT_ELEMENT_DESC[nInputElementDescs];
 
-    pd3dInputElementDescs[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-    pd3dInputElementDescs[1] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+    pd3dInputElementDescs[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
+                                 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+    // ⬇️ UV는 slot=1, offset=0 로!
+    pd3dInputElementDescs[1] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,     1, 0,
+                                 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
 
     D3D12_INPUT_LAYOUT_DESC d3dInputLayoutDesc;
     d3dInputLayoutDesc.pInputElementDescs = pd3dInputElementDescs;
@@ -105,7 +108,8 @@ void CWaterShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandL
 
     HRESULT hr_pso = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[0]);
     
-    if (FAILED(hr_pso)) {
+    if (FAILED(hr_pso) || !m_ppd3dPipelineStates[0]) {
+        OutputDebugStringA("\n--- ERROR: Failed to create Water PSO ---\n");
         ComPtr<ID3D12InfoQueue> pInfoQueue;
         if (SUCCEEDED(pd3dDevice->QueryInterface(IID_PPV_ARGS(&pInfoQueue))))
         {
@@ -125,6 +129,10 @@ void CWaterShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandL
             }
         }
     }
+
+    TCHAR buffer[256];
+    _stprintf_s(buffer, L"CWaterShader::CreateShader: m_ppd3dPipelineStates[0] = %p (after creation attempt)\n", m_ppd3dPipelineStates[0]);
+    OutputDebugString(buffer);
 
     if (m_d3dPipelineStateDesc.InputLayout.pInputElementDescs) {
         delete[] m_d3dPipelineStateDesc.InputLayout.pInputElementDescs;

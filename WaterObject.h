@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "Object.h"
 #include "WaterShader.h"
@@ -9,6 +9,7 @@ class CWaterObject : public CGameObject
 public:
     CWaterObject(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature, CWaterShader* pWaterShader, float fWidth, float fLength);
     virtual ~CWaterObject();
+   
 
     // No custom Animate or Render needed if base CGameObject methods are sufficient
     // virtual void Animate(float fTimeElapsed);
