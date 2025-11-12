@@ -147,6 +147,8 @@
     <ClInclude Include="Timer.h" />
     <ClInclude Include="UIRectMesh.h" />
     <ClInclude Include="UIShader.h" />
+    <ClInclude Include="WaterObject.h" />
+    <ClInclude Include="WaterShader.h" />
     <ClInclude Include="WICTextureLoader12.h" />
   </ItemGroup>
   <ItemGroup>
@@ -167,6 +169,8 @@
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="UIRectMesh.cpp" />
     <ClCompile Include="UIShader.cpp" />
+    <ClCompile Include="WaterObject.cpp" />
+    <ClCompile Include="WaterShader.cpp" />
     <ClCompile Include="WICTextureLoader12.cpp" />
   </ItemGroup>
   <ItemGroup>

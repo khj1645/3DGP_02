@@ -47,8 +47,19 @@ D3D12_SHADER_BYTECODE CShader::CompileShaderFromFile(WCHAR *pszFileName, LPCSTR 
 
 	ID3DBlob *pd3dErrorBlob = NULL;
 	HRESULT hResult = ::D3DCompileFromFile(pszFileName, NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, pszShaderName, pszShaderProfile, nCompileFlags, 0, ppd3dShaderBlob, &pd3dErrorBlob);
-	char *pErrorString = NULL;
-	if (pd3dErrorBlob) pErrorString = (char *)pd3dErrorBlob->GetBufferPointer();
+	
+	if (FAILED(hResult))
+	{
+		char *pErrorString = NULL;
+		if (pd3dErrorBlob)
+		{
+			pErrorString = (char *)pd3dErrorBlob->GetBufferPointer();
+			OutputDebugStringA(pErrorString); // Debug 출력으로 오류 메시지 출력
+			pd3dErrorBlob->Release();
+		}
+		// 오류 발생 시 빈 바이트코드 반환 또는 예외 처리
+		return D3D12_SHADER_BYTECODE{ NULL, 0 }; 
+	}
 
 	D3D12_SHADER_BYTECODE d3dShaderByteCode;
 	d3dShaderByteCode.BytecodeLength = (*ppd3dShaderBlob)->GetBufferSize();

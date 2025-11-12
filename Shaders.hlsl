@@ -21,6 +21,26 @@ cbuffer cbGameObjectInfo : register(b2)
 	uint					gnTexturesMask : packoffset(c8);
 };
 
+cbuffer cbWaterInfo : register(b5)
+{
+	matrix		gf4x4TextureAnimation : packoffset(c0);
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Water Shaders
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+struct VS_WATER_INPUT
+{
+	float3 position : POSITION;
+	float2 uv : TEXCOORD0;
+};
+
+struct VS_WATER_OUTPUT
+{
+	float4 position : SV_POSITION;
+	float2 uv : TEXCOORD0;
+};
+
 #include "Light.hlsl"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,7 +63,46 @@ Texture2D gtxtEmissionTexture : register(t10);
 Texture2D gtxtDetailAlbedoTexture : register(t11);
 Texture2D gtxtDetailNormalTexture : register(t12);
 
-SamplerState gssWrap : register(s0);
+Texture2D gtxtWaterBaseTexture : register(t20);
+Texture2D gtxtWaterDetail0Texture : register(t21);
+Texture2D gtxtWaterDetail1Texture : register(t22);
+
+SamplerState gssWrap : register(s0); // gssWrap (s0)을 재사용할 것이므로 주석 처리
+
+VS_WATER_OUTPUT VSTerrainWater(VS_WATER_INPUT input)
+{
+    VS_WATER_OUTPUT output;
+
+    // Transform position from model space to world space
+    float4 worldPos = mul(float4(input.position, 1.0f), gmtxGameObject);
+    
+    // Transform position from world space to view space, then to projection space
+    output.position = mul(mul(worldPos, gmtxView), gmtxProjection);
+    
+    // Pass UVs directly to pixel shader
+    output.uv = input.uv;
+
+    return output;
+}
+
+float4 PSTerrainWater(VS_WATER_OUTPUT input) : SV_TARGET
+{
+	float2 uv = input.uv;
+
+	// 텍스처 애니메이션 매트릭스 적용
+	uv = mul(float3(input.uv, 1.0f), (float3x3)gf4x4TextureAnimation).xy;
+
+	// 텍스처 샘플링 (Detail 텍스처는 20배 타일링)
+	float4 cBaseTexColor = gtxtWaterBaseTexture.SampleLevel(gssWrap, uv, 0); // gssWrap (s0) 사용
+	float4 cDetail0TexColor = gtxtWaterDetail0Texture.SampleLevel(gssWrap, uv * 20.0f, 0); // gssWrap (s0) 사용
+	float4 cDetail1TexColor = gtxtWaterDetail1Texture.SampleLevel(gssWrap, uv * 20.0f, 0); // gssWrap (s0) 사용
+
+	// 최종 색상 조합
+	float4 cColor = (1.0f,0.0f,0.0f,1.0f);
+	//cColor.a = 0.5f; // Set a constant alpha for transparency
+
+	return(cColor);
+}
 
 struct VS_STANDARD_INPUT
 {
@@ -191,7 +250,7 @@ float4 PSTextured(VS_SPRITE_TEXTURED_OUTPUT input, uint nPrimitiveID : SV_Primit
 Texture2D gtxtTerrainTexture : register(t14);
 Texture2D gtxtDetailTexture : register(t15);
 Texture2D gtxtAlphaTexture : register(t16);
-Texture2D gtxtAlphaTextures[] : register(t17);
+Texture2D gtxtAlphaTextures[] : register(t23);
 
 float4 PSTextured(VS_SPRITE_TEXTURED_OUTPUT input) : SV_TARGET
 {

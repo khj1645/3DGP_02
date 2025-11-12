@@ -57,7 +57,23 @@ private:
 
 public:
 	void AddRef() { m_nReferences++; }
-	void Release() { if (--m_nReferences <= 0) delete this; }
+	void Release() 
+	{ 
+		TCHAR buffer[256];
+		_stprintf_s(buffer, L"CTexture::Release() called on %p. m_nReferences: %d\n", this, m_nReferences);
+		OutputDebugString(buffer);
+
+		int nNewReferences = --m_nReferences;
+		_stprintf_s(buffer, L"CTexture::Release() on %p. New m_nReferences: %d\n", this, nNewReferences);
+		OutputDebugString(buffer);
+
+		if (nNewReferences <= 0) 
+		{
+			_stprintf_s(buffer, L"CTexture::Release() deleting %p\n", this);
+			OutputDebugString(buffer);
+			delete this; 
+		}
+	}
 
 	void SetSampler(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSamplerGpuDescriptorHandle);
 
@@ -115,8 +131,23 @@ private:
 
 public:
 	void AddRef() { m_nReferences++; }
-	void Release() { if (--m_nReferences <= 0) delete this; }
+	void Release() 
+	{
+		TCHAR buffer[256];
+		_stprintf_s(buffer, L"CMaterial::Release() called on %p. m_nReferences: %d\n", this, m_nReferences);
+		OutputDebugString(buffer);
 
+		int nNewReferences = --m_nReferences;
+		_stprintf_s(buffer, L"CMaterial::Release() on %p. New m_nReferences: %d\n", this, nNewReferences);
+		OutputDebugString(buffer);
+
+		if (nNewReferences <= 0) 
+		{
+			_stprintf_s(buffer, L"CMaterial::Release() deleting %p\n", this);
+			OutputDebugString(buffer);
+			delete this; 
+		}
+	}
 public:
 	CShader							*m_pShader = NULL;
 	CTexture*						m_pTexture = NULL;

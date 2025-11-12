@@ -12,6 +12,12 @@
 #include "UIRectMesh.h" // Added for UI Rect Mesh
 #include "ScreenQuadMesh.h" // Added for Screen Quad Mesh (for background)
 #include "UIShader.h" // Added for UI Shader
+#include "WaterObject.h" // Added for CWaterObject
+
+struct VS_CB_WATER_ANIMATION
+{
+	XMFLOAT4X4					m_xmf4x4TextureAnimation;
+};
 
 #define MAX_LIGHTS			16 
 
@@ -131,8 +137,14 @@ protected:
 	int									m_nShaders = 0;
 	CShader								**m_ppShaders = NULL;
 
+
+// ... (existing code)
+
 	CSkyBox								*m_pSkyBox = NULL;
 	CHeightMapTerrain*					m_pTerrain = NULL;
+
+	CWaterObject*						m_pWater = NULL; // 물 객체
+	XMFLOAT4X4							m_xmf4x4WaterAnimation; // 물 텍스처 애니메이션 매트릭스
 
 	CBillboardShader*					m_pBillboardShader = NULL; // Added for billboard shader
 	CTexture*							m_pBillboardTexture = NULL; // Added for billboard texture
@@ -144,6 +156,9 @@ protected:
 
 	ID3D12Resource						*m_pd3dcbLights = NULL;
 	LIGHTS								*m_pcbMappedLights = NULL;
+
+	ID3D12Resource*						m_pd3dcbWaterAnimation = NULL;
+	VS_CB_WATER_ANIMATION*				m_pcbMappedWaterAnimation = NULL;
 
 public:
 	static CDescriptorHeap*				m_pDescriptorHeap;

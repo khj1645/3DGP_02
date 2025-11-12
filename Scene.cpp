@@ -8,6 +8,8 @@
 #include "UIRectMesh.h" // Added for UI Rect Mesh
 #include "ScreenQuadMesh.h" // Added for Screen Quad Mesh
 #include "UIShader.h" // Added for UI Shader
+#include "WaterObject.h" // Added for CWaterObject
+#include "WaterShader.h" // Added for CWaterShader
 #include "GameFramework.h"
 #include "ScreenQuadMesh.h"
 #include "UIShader.h"
@@ -97,7 +99,6 @@ void CScene::CreateShaderResourceViews(ID3D12Device* pd3dDevice, CTexture* pText
 		D3D12_SHADER_RESOURCE_VIEW_DESC d3dShaderResourceViewDesc = pTexture->GetShaderResourceViewDesc(i);
 		pd3dDevice->CreateShaderResourceView(pShaderResource, &d3dShaderResourceViewDesc, m_pDescriptorHeap->m_d3dSrvCPUDescriptorNextHandle);
 		m_pDescriptorHeap->m_d3dSrvCPUDescriptorNextHandle.ptr += ::gnCbvSrvDescriptorIncrementSize;
-
 		pTexture->SetGpuDescriptorHandle(i, m_pDescriptorHeap->m_d3dSrvGPUDescriptorNextHandle);
 		m_pDescriptorHeap->m_d3dSrvGPUDescriptorNextHandle.ptr += ::gnCbvSrvDescriptorIncrementSize;
 	}
@@ -140,6 +141,7 @@ void CScene::CreateShaderResourceView(ID3D12Device* pd3dDevice, CTexture* pTextu
 CScene::CScene(CGameFramework* pGameFramework)
 {
 	m_pGameFramework = pGameFramework;
+	m_xmf4x4WaterAnimation = XMFLOAT4X4(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
 }
 
 CScene::~CScene()
@@ -199,18 +201,16 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 {
 	m_pd3dGraphicsRootSignature = CreateGraphicsRootSignature(pd3dDevice);
 
-	// 디스크립터 힙 생성 시 메뉴 텍스처를 위한 SRV 1개 추가
 	m_pDescriptorHeap = new CDescriptorHeap();
-	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 502); //SuperCobra(17), Gunship(2), Player(1), Skybox(1), Terrain(3), MainMenu(1) + Billboards(20) = 45
+	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 505); 
 
 	BuildDefaultLightsAndMaterials();
 
-	// 셰이더 배열 크기를 3으로 늘림 (오브젝트 셰이더 + UI 텍스처 셰이더 + 빌보드 셰이더)
-	m_nShaders = 3;
+	m_nShaders = 4;
 	m_ppShaders = new CShader*[m_nShaders];
 
 	CObjectsShader* pObjectsShader = new CObjectsShader();
-	pObjectsShader->AddRef(); // 셰이더의 참조 횟수를 1로 만듭니다.
+	pObjectsShader->AddRef();
 	pObjectsShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	pObjectsShader->BuildObjects(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, NULL);
 	m_ppShaders[0] = pObjectsShader;
@@ -221,34 +221,41 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	XMFLOAT4 xmf4Color(0.0f, 0.5f, 0.0f, 0.0f);
 	m_pTerrain = new CHeightMapTerrain(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, _T("Terrain/HeightMap.raw"), 257, 257, 257, 257, xmf3Scale, xmf4Color);
 
-	// UI 렌더링을 위한 CUIShader 생성
-	CUIShader* pUIShader = new CUIShader();
-	pUIShader->AddRef(); // 셰이더의 참조 횟수를 1로 만듭니다.
-	pUIShader->CreateShader(pd3dDevice, pd3dCommandList);
-	m_ppShaders[1] = pUIShader; // Assign UIShader to index 1
+	CWaterShader* pWaterShader = new CWaterShader();
+	pWaterShader->AddRef();
+	pWaterShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
+	m_ppShaders[3] = pWaterShader;
 
-	// Create ScreenQuadMesh for background
+	float waterWidth = 257 * xmf3Scale.x;
+	float waterLength = 257 * xmf3Scale.z;
+	m_pWater = new CWaterObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, pWaterShader, waterWidth, waterLength);
+	m_pWater->SetPosition(920.0f, 745.0f, 1270.0f);
+
+	CUIShader* pUIShader = new CUIShader();
+	pUIShader->AddRef();
+	pUIShader->CreateShader(pd3dDevice, pd3dCommandList);
+	m_ppShaders[1] = pUIShader;
+
 	m_pBackgroundObject = new CGameObject(1, 1);
-	CScreenQuadMesh* pBackgroundMesh = new CScreenQuadMesh(pd3dDevice, pd3dCommandList); // Full screen quad
+	CScreenQuadMesh* pBackgroundMesh = new CScreenQuadMesh(pd3dDevice, pd3dCommandList);
 	m_pBackgroundObject->SetMesh(0, pBackgroundMesh);
 
 	CTexture* pBackgroundTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	pBackgroundTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/title.dds", RESOURCE_TEXTURE2D, 0); // Use a specific UI background
+	pBackgroundTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/title.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, pBackgroundTexture, 0);
 	pBackgroundTexture->SetRootParameterIndex(0, 0);
 
 	CMaterial* pBackgroundMaterial = new CMaterial();
 	pBackgroundMaterial->SetTexture(pBackgroundTexture);
-	pBackgroundMaterial->SetShader(pUIShader); // Use UIShader for background
+	pBackgroundMaterial->SetShader(pUIShader);
 	m_pBackgroundObject->SetMaterial(0, pBackgroundMaterial);
 
-	// Start Button
 	m_pStartButtonObject = new CGameObject(1, 1);
-	CUIRectMesh* pStartButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.25f, 0.35f, 0.2f, 0.2f); // x, y, width, height in normalized screen coords
+	CUIRectMesh* pStartButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.25f, 0.35f, 0.2f, 0.2f);
 	m_pStartButtonObject->SetMesh(0, pStartButtonMesh);
 
 	m_pStartButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pStartButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/start.dds", RESOURCE_TEXTURE2D, 0); // Use start.dds
+	m_pStartButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/start.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, m_pStartButtonDefaultTexture, 0);
 	m_pStartButtonDefaultTexture->SetRootParameterIndex(0, 0);
 
@@ -257,24 +264,20 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pStartButtonMaterial->SetShader(pUIShader);
 	m_pStartButtonObject->SetMaterial(0, pStartButtonMaterial);
 
-	// Start Button Hover Object (slightly larger)
 	m_pStartButtonHoverObject = new CGameObject(1, 1);
-	// Slightly larger dimensions for hover effect (e.g., 1.1x scale)
 	CUIRectMesh* pStartButtonHoverMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.25f - (0.2f * 0.05f), 0.35f - (0.2f * 0.05f), 0.2f * 1.1f, 0.2f * 1.1f);
 	m_pStartButtonHoverObject->SetMesh(0, pStartButtonHoverMesh);
 	CMaterial* pStartButtonHoverMaterial = new CMaterial();
-	pStartButtonHoverMaterial->SetTexture(m_pStartButtonDefaultTexture); // Same texture
+	pStartButtonHoverMaterial->SetTexture(m_pStartButtonDefaultTexture);
 	pStartButtonHoverMaterial->SetShader(pUIShader);
 	m_pStartButtonHoverObject->SetMaterial(0, pStartButtonHoverMaterial);
 
-
-	// Exit Button
 	m_pExitButtonObject = new CGameObject(1, 1);
-	CUIRectMesh* pExitButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.55f, 0.35f, 0.2f, 0.2f); // x, y, width, height in normalized screen coords
+	CUIRectMesh* pExitButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.55f, 0.35f, 0.2f, 0.2f);
 	m_pExitButtonObject->SetMesh(0, pExitButtonMesh);
 
 	m_pExitButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pExitButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/exit.dds", RESOURCE_TEXTURE2D, 0); // Use exit.dds
+	m_pExitButtonDefaultTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/exit.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, m_pExitButtonDefaultTexture, 0);
 	m_pExitButtonDefaultTexture->SetRootParameterIndex(0, 0);
 
@@ -283,49 +286,34 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pExitButtonMaterial->SetShader(pUIShader);
 	m_pExitButtonObject->SetMaterial(0, pExitButtonMaterial);
 
-	// Exit Button Hover Object (slightly larger)
 	m_pExitButtonHoverObject = new CGameObject(1, 1);
-	// Slightly larger dimensions for hover effect (e.g., 1.1x scale)
 	CUIRectMesh* pExitButtonHoverMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.55f - (0.2f * 0.05f), 0.35f - (0.2f * 0.05f), 0.2f * 1.1f, 0.2f * 1.1f);
 	m_pExitButtonHoverObject->SetMesh(0, pExitButtonHoverMesh);
 	CMaterial* pExitButtonHoverMaterial = new CMaterial();
-	pExitButtonHoverMaterial->SetTexture(m_pExitButtonDefaultTexture); // Same texture
+	pExitButtonHoverMaterial->SetTexture(m_pExitButtonDefaultTexture);
 	pExitButtonHoverMaterial->SetShader(pUIShader);
 	m_pExitButtonHoverObject->SetMaterial(0, pExitButtonHoverMaterial);
 
-	// 빌보드 셰이더 생성
-	m_pBillboardShader = new CBillboardShader(); // Assign to member
+	m_pBillboardShader = new CBillboardShader();
 	m_pBillboardShader->AddRef();
 	m_pBillboardShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-	m_ppShaders[2] = m_pBillboardShader; // Assign BillboardShader to index 2
+	m_ppShaders[2] = m_pBillboardShader;
 
-	// 빌보드 텍스처 로드 (하나의 텍스처로 통일)
 	m_pBillboardTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pBillboardTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Model/Textures/Tree02.dds", RESOURCE_TEXTURE2D, 0); // Example texture
-	CScene::CreateShaderResourceView(pd3dDevice, m_pBillboardTexture, 0);
-	m_pBillboardTexture->SetRootParameterIndex(0, 12); // 빌보드 텍스처 루트 파라미터 인덱스 (t17)
+	m_pBillboardTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Model/Textures/Tree02.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, m_pBillboardTexture, 0, 12);
 
-	// 빌보드 객체 생성
-	int nBillboardsToGenerate = 100; // 생성할 빌보드 개수
+	int nBillboardsToGenerate = 100;
 	m_nBillboardObjects = nBillboardsToGenerate;
 	m_ppBillboardObjects = new CGameObject*[m_nBillboardObjects];
 	
 	XMFLOAT3 playerInitialPos = XMFLOAT3(920.0f, 745.0f, 1270.0f); 
 	float generationRadius = 200.0f;
-	// 랜덤 빌보드 위치 생성
 	for (int i = 0; i < nBillboardsToGenerate; ++i)
 	{
-		// 플레이어 위치 주변에서 랜덤 X, Z 좌표 생성
 		float x = playerInitialPos.x + (((float)rand() / RAND_MAX) * 2.0f - 1.0f) * generationRadius;
 		float z = playerInitialPos.z + (((float)rand() / RAND_MAX) * 2.0f - 1.0f) * generationRadius;
-		
-		// 지형의 경계를 벗어나지 않도록 클램프 (선택 사항, 필요시 추가)
-		// float terrainWidth = m_pTerrain->GetWidth();
-		// float terrainLength = m_pTerrain->GetLength();
-		// x = max(-terrainWidth / 2.0f, min(terrainWidth / 2.0f, x));
-		// z = max(-terrainLength / 2.0f, min(terrainLength / 2.0f, z));
-
-		float y = m_pTerrain->GetHeight(x, z) + 1.0f; // 지형 위에 약간 띄워서 배치
+		float y = m_pTerrain->GetHeight(x, z) + 1.0f;
 
 		XMFLOAT3 billboardPosition = XMFLOAT3(x, y, z);
 		
@@ -340,12 +328,9 @@ void CScene::ReleaseObjects()
 {
 	if (m_pStartButtonObject) m_pStartButtonObject->Release();
 	if (m_pExitButtonObject) m_pExitButtonObject->Release();
-	if (m_pStartButtonHoverObject) m_pStartButtonHoverObject->Release(); // Release hover object
-	if (m_pExitButtonHoverObject) m_pExitButtonHoverObject->Release(); // Release hover object
+	if (m_pStartButtonHoverObject) m_pStartButtonHoverObject->Release();
+	if (m_pExitButtonHoverObject) m_pExitButtonHoverObject->Release();
 	if (m_pBackgroundObject) m_pBackgroundObject->Release();
-
-	// Removed direct Release() calls for m_pStartButtonDefaultTexture and m_pExitButtonDefaultTexture
-	// as they are managed by CMaterial objects which are released by CGameObject.
 
 	if (m_pMainMenuObject) m_pMainMenuObject->Release();
 
@@ -368,17 +353,14 @@ void CScene::ReleaseObjects()
 	}
 
 	if (m_pTerrain) delete m_pTerrain;
+	if (m_pWater) delete m_pWater;
 	if (m_pSkyBox) delete m_pSkyBox;
 
-	if (m_ppBillboardObjects) // Release CBillboardObjects first
+	if (m_ppBillboardObjects)
 	{
 		for (int i = 0; i < m_nBillboardObjects; i++) if (m_ppBillboardObjects[i]) m_ppBillboardObjects[i]->Release();
 		delete[] m_ppBillboardObjects;
 	}
-
-	// m_pBillboardShader is released as part of m_ppShaders array.
-	// m_pBillboardTexture is reference counted and released by CMaterial objects.
-	// No explicit Release() call needed here.
 
 	if (m_ppGameObjects)
 	{
@@ -388,7 +370,6 @@ void CScene::ReleaseObjects()
 
 	if (m_pLights) delete[] m_pLights;
 
-	// 디스크립터 힙은 관련된 모든 오브젝트가 해제된 후 마지막에 해제합니다.
 	if (m_pDescriptorHeap) delete m_pDescriptorHeap;
 }
 
@@ -396,7 +377,7 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 {
 	ID3D12RootSignature *pd3dGraphicsRootSignature = NULL;
 
-	D3D12_DESCRIPTOR_RANGE pd3dDescriptorRanges[10];
+	D3D12_DESCRIPTOR_RANGE pd3dDescriptorRanges[14];
 
 	pd3dDescriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	pd3dDescriptorRanges[0].NumDescriptors = 1;
@@ -453,12 +434,24 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 	pd3dDescriptorRanges[8].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	pd3dDescriptorRanges[9].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	pd3dDescriptorRanges[9].NumDescriptors = 20; // 빌보드 텍스처를 위한 충분한 공간 (grass, tree, flower 등)
+	pd3dDescriptorRanges[9].NumDescriptors = 3; 
 	pd3dDescriptorRanges[9].BaseShaderRegister = 17; //t17: gtxtBillboards[]
 	pd3dDescriptorRanges[9].RegisterSpace = 0;
 	pd3dDescriptorRanges[9].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	D3D12_ROOT_PARAMETER pd3dRootParameters[13];
+	pd3dDescriptorRanges[10].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	pd3dDescriptorRanges[10].NumDescriptors = 3; 
+	pd3dDescriptorRanges[10].BaseShaderRegister = 20; 
+	pd3dDescriptorRanges[10].RegisterSpace = 0;
+	pd3dDescriptorRanges[10].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	pd3dDescriptorRanges[11].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	pd3dDescriptorRanges[11].NumDescriptors = 1; 
+	pd3dDescriptorRanges[11].BaseShaderRegister = 23; 
+	pd3dDescriptorRanges[11].RegisterSpace = 0;
+	pd3dDescriptorRanges[11].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	D3D12_ROOT_PARAMETER pd3dRootParameters[16];
 
 	pd3dRootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	pd3dRootParameters[0].Descriptor.ShaderRegister = 1; //Camera
@@ -526,6 +519,21 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 	pd3dRootParameters[12].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[9]);
 	pd3dRootParameters[12].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
+	pd3dRootParameters[13].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	pd3dRootParameters[13].DescriptorTable.NumDescriptorRanges = 1;
+	pd3dRootParameters[13].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[10]);
+	pd3dRootParameters[13].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	pd3dRootParameters[14].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	pd3dRootParameters[14].Descriptor.ShaderRegister = 5;
+	pd3dRootParameters[14].Descriptor.RegisterSpace = 0;
+	pd3dRootParameters[14].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	pd3dRootParameters[15].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	pd3dRootParameters[15].DescriptorTable.NumDescriptorRanges = 1;
+	pd3dRootParameters[15].DescriptorTable.pDescriptorRanges = &(pd3dDescriptorRanges[11]);
+	pd3dRootParameters[15].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
 	D3D12_STATIC_SAMPLER_DESC pd3dSamplerDescs[2];
 
 	pd3dSamplerDescs[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -579,6 +587,11 @@ void CScene::CreateShaderVariables(ID3D12Device *pd3dDevice, ID3D12GraphicsComma
 	m_pd3dcbLights = ::CreateBufferResource(pd3dDevice, pd3dCommandList, NULL, ncbElementBytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, NULL);
 
 	m_pd3dcbLights->Map(0, NULL, (void **)&m_pcbMappedLights);
+
+	ncbElementBytes = ((sizeof(VS_CB_WATER_ANIMATION) + 255) & ~255); //256
+	m_pd3dcbWaterAnimation = ::CreateBufferResource(pd3dDevice, pd3dCommandList, NULL, ncbElementBytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, NULL);
+
+	m_pd3dcbWaterAnimation->Map(0, NULL, (void **)&m_pcbMappedWaterAnimation);
 }
 
 void CScene::UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList)
@@ -586,6 +599,9 @@ void CScene::UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList)
 	::memcpy(m_pcbMappedLights->m_pLights, m_pLights, sizeof(LIGHT) * m_nLights);
 	::memcpy(&m_pcbMappedLights->m_xmf4GlobalAmbient, &m_xmf4GlobalAmbient, sizeof(XMFLOAT4));
 	::memcpy(&m_pcbMappedLights->m_nLights, &m_nLights, sizeof(int));
+
+	XMStoreFloat4x4(&m_pcbMappedWaterAnimation->m_xmf4x4TextureAnimation, XMMatrixTranspose(XMLoadFloat4x4(&m_xmf4x4WaterAnimation)));
+	pd3dCommandList->SetGraphicsRootConstantBufferView(14, m_pd3dcbWaterAnimation->GetGPUVirtualAddress());
 }
 
 void CScene::ReleaseShaderVariables()
@@ -596,6 +612,12 @@ void CScene::ReleaseShaderVariables()
 		m_pd3dcbLights->Release();
 	}
 
+	if (m_pd3dcbWaterAnimation)
+	{
+		m_pd3dcbWaterAnimation->Unmap(0, NULL);
+		m_pd3dcbWaterAnimation->Release();
+	}
+
 	if (m_pTerrain) m_pTerrain->ReleaseShaderVariables();
 	if (m_pSkyBox) m_pSkyBox->ReleaseShaderVariables();
 }
@@ -604,6 +626,7 @@ void CScene::ReleaseUploadBuffers()
 {
 	if (m_pTerrain) m_pTerrain->ReleaseUploadBuffers();
 	if (m_pSkyBox) m_pSkyBox->ReleaseUploadBuffers();
+	if (m_pWater) m_pWater->ReleaseUploadBuffers();
 
 	for (int i = 0; i < m_nShaders; i++) m_ppShaders[i]->ReleaseUploadBuffers();
 	for (int i = 0; i < m_nGameObjects; i++) m_ppGameObjects[i]->ReleaseUploadBuffers();
@@ -620,28 +643,25 @@ bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam,
 			if (m_pHoveredObject == m_pStartButtonObject)
 			{
 				m_pGameFramework->SetGameState(GameState::InGame);
-				// Optionally reset player position or other game state here
 			}
 			else if (m_pHoveredObject == m_pExitButtonObject)
 			{
-				PostQuitMessage(0); // Exit the application
+				PostQuitMessage(0);
 			}
-			return true; // Message handled
+			return true;
 		}
 		case WM_MOUSEMOVE:
 		{
 			int x = LOWORD(lParam);
 			int y = HIWORD(lParam);
 
-			// Convert mouse coordinates to Normalized Device Coordinates (NDC)
-			// NDC range from -1 to 1 for both X and Y
 			float ndcX = (2.0f * x) / m_pGameFramework->GetCamera()->GetViewport().Width - 1.0f;
 			float ndcY = 1.0f - (2.0f * y) / m_pGameFramework->GetCamera()->GetViewport().Height;
 
-			XMFLOAT3 pickPos = XMFLOAT3(ndcX, ndcY, 0.0f); // Z doesn't matter for 2D UI picking
+			XMFLOAT3 pickPos = XMFLOAT3(ndcX, ndcY, 0.0f);
 
 			m_pHoveredObject = PickObjectByRayIntersection(pickPos, m_pGameFramework->GetCamera()->GetViewMatrix());
-			return true; // Message handled
+			return true;
 		}
 		default:
 			break;
@@ -657,13 +677,6 @@ bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wPar
 	case WM_KEYDOWN:
 		switch (wParam)
 		{
-			/*
-		case 'W': m_ppGameObjects[0]->MoveForward(+1.0f); break;
-		case 'S': m_ppGameObjects[0]->MoveForward(-1.0f); break;
-		case 'A': m_ppGameObjects[0]->MoveStrafe(-1.0f); break;
-		case 'D': m_ppGameObjects[0]->MoveStrafe(+1.0f); break;
-		case 'Q': m_ppGameObjects[0]->MoveUp(+1.0f); break;
-		case 'R': m_ppGameObjects[0]->MoveUp(-1.0f); break;*/
 		default:
 			break;
 		}
@@ -692,45 +705,38 @@ void CScene::AnimateObjects(float fTimeElapsed)
 		m_pLights[1].m_xmf3Direction = m_pPlayer->GetLookVector();
 	}
 
-	UpdateUIButtons(fTimeElapsed); // Call UpdateUIButtons
+	UpdateUIButtons(fTimeElapsed);
+
+	m_xmf4x4WaterAnimation._32 += fTimeElapsed * 0.00125f;
 }
 
 void CScene::UpdateUIButtons(float fTimeElapsed)
 {
     if (m_pGameFramework->GetGameState() == GameState::MainMenu)
     {
-        // No need to call SetScale anymore.
-        // The m_pHoveredObject will be set by OnProcessingMouseMessage.
-        // Render will decide which object to draw based on m_pHoveredObject.
     }
 }
 
 CGameObject* CScene::PickObjectByRayIntersection(XMFLOAT3& xmf3PickPosition, XMFLOAT4X4& xmf4x4View)
 {
-    // For UI objects, the pick position is in screen space NDC [-1, 1].
-    // We check against the bounding box of the UI buttons.
-
     auto IsPointInBox = [](const XMFLOAT3& point, const CGameObject* pObject) -> bool {
         CMesh* pMesh = pObject->GetMesh(0);
         if (!pMesh) return false;
 
         CUIRectMesh* pUIMesh = dynamic_cast<CUIRectMesh*>(pMesh);
-        if (!pUIMesh) return false; // Not a UI Rect Mesh
+        if (!pUIMesh) return false;
 
-        // Get normalized coordinates from the UI Rect Mesh
         float normalizedX = pUIMesh->GetNormalizedX();
         float normalizedY = pUIMesh->GetNormalizedY();
         float normalizedWidth = pUIMesh->GetNormalizedWidth();
         float normalizedHeight = pUIMesh->GetNormalizedHeight();
 
-        // Convert normalized [0,1] to NDC [-1,1]
         float ndcLeft = (normalizedX * 2.0f) - 1.0f;
         float ndcRight = ndcLeft + (normalizedWidth * 2.0f);
-        float ndcTop = 1.0f - (normalizedY * 2.0f); // Y-axis is inverted
+        float ndcTop = 1.0f - (normalizedY * 2.0f);
         float ndcBottom = ndcTop - (normalizedHeight * 2.0f);
 
-        // Check if the point is within the box (with a small epsilon for robustness)
-        const float epsilon = 0.0001f; // Small epsilon for floating-point comparisons
+        const float epsilon = 0.0001f;
         if (point.x >= (ndcLeft - epsilon) && point.x <= (ndcRight + epsilon) &&
             point.y >= (ndcBottom - epsilon) && point.y <= (ndcTop + epsilon)) {
             return true;
@@ -757,10 +763,9 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 	{
 		if (m_pGameFramework->GetCamera()) m_pGameFramework->GetCamera()->SetViewportsAndScissorRects(pd3dCommandList);
 
-		// Render Background first in MainMenu state
 		if (m_pBackgroundObject)
 		{
-			CUIShader* pUIShader = (CUIShader*)m_ppShaders[1]; // Assuming UIShader is at index 1
+			CUIShader* pUIShader = (CUIShader*)m_ppShaders[1];
 			pd3dCommandList->SetGraphicsRootSignature(pUIShader->GetGraphicsRootSignature());
 			ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
 			pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
@@ -771,9 +776,6 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 		{
 			CUIShader* pUIShader = (CUIShader*)m_ppShaders[1];
 			pd3dCommandList->SetGraphicsRootSignature(pUIShader->GetGraphicsRootSignature());
-			// Descriptor heaps are already set, no need to set again unless different heaps are used
-			// ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
-			// pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
 			if (m_pHoveredObject == m_pStartButtonObject)
 			{
@@ -796,9 +798,7 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 	}
 	else
 	{
-		// 3D InGame 렌더링을 위해 메인 루트 시그니처를 설정합니다.
 		pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
-		// 3D 씬 렌더링에 필요한 디스크립터 힙을 설정합니다.
 		ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
 		pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
@@ -808,18 +808,16 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 		UpdateShaderVariables(pd3dCommandList);
 
 		D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
-		pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress); //Lights
+		pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress);
 
 		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
+		if (m_pWater) m_pWater->Render(pd3dCommandList, pCamera);
 
-		// 3D 오브젝트 셰이더만 렌더링합니다. (헬리콥터 등)
 		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
 
-		// 플레이어를 렌더링합니다.
 		if (m_pPlayer) m_pPlayer->Render(pd3dCommandList, pCamera);
 
-		// 빌보드를 렌더링합니다. (반투명 객체이므로 마지막에 렌더링)
 		for (int i = 0; i < m_nBillboardObjects; i++)
 		{
 			if (m_ppBillboardObjects[i]) m_ppBillboardObjects[i]->Render(pd3dCommandList, pCamera);

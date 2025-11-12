@@ -105,7 +105,18 @@ void CTexture::ReleaseUploadBuffers()
 {
 	if (m_ppd3dTextureUploadBuffers)
 	{
-		for (int i = 0; i < m_nTextures; i++) if (m_ppd3dTextureUploadBuffers[i]) m_ppd3dTextureUploadBuffers[i]->Release();
+		for (int i = 0; i < m_nTextures; i++)
+		{
+			if (m_ppd3dTextureUploadBuffers[i])
+			{
+				TCHAR buffer[256];
+				_stprintf_s(buffer, L"Releasing Upload Buffer[%d]: %p\n", i, m_ppd3dTextureUploadBuffers[i]);
+				OutputDebugString(buffer);
+
+				m_ppd3dTextureUploadBuffers[i]->Release();
+				m_ppd3dTextureUploadBuffers[i] = NULL; // Set to NULL after releasing
+			}
+		}
 		delete[] m_ppd3dTextureUploadBuffers;
 		m_ppd3dTextureUploadBuffers = NULL;
 	}
@@ -113,8 +124,20 @@ void CTexture::ReleaseUploadBuffers()
 
 void CTexture::LoadTextureFromDDSFile(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, wchar_t* pszFileName, UINT nResourceType, UINT nIndex)
 {
+    TCHAR buffer[256];
+    _stprintf_s(buffer, L"CTexture::LoadTextureFromDDSFile() - Attempting to load texture: %s at index %d\n", pszFileName, nIndex);
+    OutputDebugString(buffer);
+
 	m_pnResourceTypes[nIndex] = nResourceType;
 	m_ppd3dTextures[nIndex] = ::CreateTextureResourceFromDDSFile(pd3dDevice, pd3dCommandList, pszFileName, &m_ppd3dTextureUploadBuffers[nIndex], D3D12_RESOURCE_STATE_GENERIC_READ/*D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE*/);
+
+    if (m_ppd3dTextures[nIndex]) {
+        _stprintf_s(buffer, L"CTexture::LoadTextureFromDDSFile() - Successfully loaded texture: %s (Resource: %p)\n", pszFileName, m_ppd3dTextures[nIndex]);
+        OutputDebugString(buffer);
+    } else {
+        _stprintf_s(buffer, L"CTexture::LoadTextureFromDDSFile() - FAILED to load texture: %s\n", pszFileName);
+        OutputDebugString(buffer);
+    }
 }
 
 void CTexture::LoadBuffer(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, void* pData, UINT nElements, UINT nStride, DXGI_FORMAT ndxgiFormat, UINT nIndex)
@@ -245,10 +268,17 @@ D3D12_SHADER_RESOURCE_VIEW_DESC CTexture::GetShaderResourceViewDesc(int nIndex)
 //
 CMaterial::CMaterial()
 {
+    TCHAR buffer[256];
+    _stprintf_s(buffer, L"CMaterial::CMaterial() - Created %p\n", this);
+    OutputDebugString(buffer);
 }
 
 CMaterial::~CMaterial()
 {
+    TCHAR buffer[256];
+    _stprintf_s(buffer, L"CMaterial::~CMaterial() - Destroyed %p\n", this);
+    OutputDebugString(buffer);
+
 	if (m_pTexture) m_pTexture->Release();
 	if (m_pShader) m_pShader->Release();
 }
@@ -306,7 +336,7 @@ CGameObject::CGameObject(int nMeshes, int nMaterials) : CGameObject()
 	if (m_nMeshes > 0)
 	{
 		m_ppMeshes = new CMesh * [m_nMeshes];
-		for (int i = 0; i < m_nMeshes; i++)	m_ppMeshes[i] = NULL;
+		for (int i = 0; i < m_nMeshes; i++) m_ppMeshes[i] = NULL;
 	}
 
 	m_nMaterials = nMaterials;
@@ -342,7 +372,7 @@ CGameObject::~CGameObject()
 }
 
 void CGameObject::AddRef() 
-{ 
+{
 	m_nReferences++; 
 
 	if (m_pSibling) m_pSibling->AddRef();
@@ -350,11 +380,24 @@ void CGameObject::AddRef()
 }
 
 void CGameObject::Release() 
-{ 
+{
+    // TCHAR buffer[256];
+    // _stprintf_s(buffer, L"CGameObject::Release() called on %p. m_nReferences: %d\n", this, m_nReferences);
+    // OutputDebugString(buffer);
+
 	if (m_pSibling) m_pSibling->Release();
 	if (m_pChild) m_pChild->Release();
 
-	if (--m_nReferences <= 0) delete this; 
+    int nNewReferences = --m_nReferences;
+    // _stprintf_s(buffer, L"CGameObject::Release() on %p. New m_nReferences: %d\n", this, nNewReferences);
+    // OutputDebugString(buffer);
+
+	if (nNewReferences <= 0) 
+    {
+        // _stprintf_s(buffer, L"CGameObject::Release() deleting %p\n", this);
+        // OutputDebugString(buffer);
+        delete this; 
+    }
 }
 
 void CGameObject::SetChild(CGameObject *pChild)
@@ -391,6 +434,10 @@ void CGameObject::SetShader(int nMaterial, CShader *pShader)
 
 void CGameObject::SetMaterial(int nMaterial, CMaterial *pMaterial)
 {
+    TCHAR buffer[256];
+    _stprintf_s(buffer, L"CGameObject::SetMaterial() on CGameObject %p - Setting material[%d] from %p to %p\n", this, nMaterial, m_ppMaterials[nMaterial], pMaterial);
+    OutputDebugString(buffer);
+
 	if (m_ppMaterials[nMaterial]) m_ppMaterials[nMaterial]->Release();
 	m_ppMaterials[nMaterial] = pMaterial;
 	if (m_ppMaterials[nMaterial]) m_ppMaterials[nMaterial]->AddRef();
@@ -481,6 +528,10 @@ void CGameObject::ReleaseShaderVariables()
 
 void CGameObject::ReleaseUploadBuffers()
 {
+    TCHAR buffer[256];
+    _stprintf_s(buffer, L"CGameObject::ReleaseUploadBuffers() START on %p. m_nMaterials: %d, m_ppMaterials: %p\n", this, m_nMaterials, m_ppMaterials);
+    OutputDebugString(buffer);
+
 	for (int i = 0; i < m_nMeshes; i++)
 	{
 		if (m_ppMeshes[i]) m_ppMeshes[i]->ReleaseUploadBuffers();
@@ -488,8 +539,14 @@ void CGameObject::ReleaseUploadBuffers()
 
 	for (int i = 0; i < m_nMaterials; i++)
 	{
+        _stprintf_s(buffer, L"CGameObject::ReleaseUploadBuffers() on %p - Accessing m_ppMaterials[%d]: %p\n", this, i, m_ppMaterials[i]);
+        OutputDebugString(buffer);
+
 		if (m_ppMaterials[i]) m_ppMaterials[i]->ReleaseUploadBuffers();
 	}
+
+    _stprintf_s(buffer, L"CGameObject::ReleaseUploadBuffers() END on %p\n", this);
+    OutputDebugString(buffer);
 
 	if (m_pSibling) m_pSibling->ReleaseUploadBuffers();
 	if (m_pChild) m_pChild->ReleaseUploadBuffers();
@@ -661,8 +718,6 @@ void CGameObject::LoadMaterialsFromFile(ID3D12Device *pd3dDevice, ID3D12Graphics
 				pMaterial->SetShader(pShader);
 			}
 			SetMaterial(nMaterial, pMaterial);
-
-			UINT nMeshType = GetMeshType(0);
 		}
 		else if (!strcmp(pstrToken, "<AlbedoColor>:"))
 		{
@@ -733,12 +788,17 @@ void CGameObject::LoadMaterialsFromFile(ID3D12Device *pd3dDevice, ID3D12Graphics
 
 CGameObject *CGameObject::LoadFrameHierarchyFromFile(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature, CGameObject *pParent, FILE *pInFile, CShader* pShader)
 {
+    // TCHAR buffer[256];
+    // _stprintf_s(buffer, L"CGameObject::LoadFrameHierarchyFromFile() ENTRY. pParent: %p, pInFile: %p\n", pParent, pInFile);
+    // OutputDebugString(buffer);
+
 	char pstrToken[64] = { '\0' };
 
+	int nFrame = 0;
 	BYTE nStrLength = 0;
 	UINT nReads = 0;
 
-	int nFrame = 0, nTextures = 0;
+	int nTextures = 0;
 
 	CGameObject *pGameObject = NULL;
 
@@ -748,9 +808,14 @@ CGameObject *CGameObject::LoadFrameHierarchyFromFile(ID3D12Device *pd3dDevice, I
 		nReads = (UINT)::fread(pstrToken, sizeof(char), nStrLength, pInFile);
 		pstrToken[nStrLength] = '\0';
 
+        // _stprintf_s(buffer, L"CGameObject::LoadFrameHierarchyFromFile() on pParent %p - Processing Token: %hs\n", pParent, pstrToken);
+        // OutputDebugString(buffer);
+
 		if (!strcmp(pstrToken, "<Frame>:"))
 		{
 			pGameObject = new CGameObject(1, 1);
+            // _stprintf_s(buffer, L"CGameObject::LoadFrameHierarchyFromFile() - Created pGameObject: %p\n", pGameObject);
+            // OutputDebugString(buffer);
 
 			nReads = (UINT)::fread(&nFrame, sizeof(int), 1, pInFile);
 			nReads = (UINT)::fread(&nTextures, sizeof(int), 1, pInFile);
@@ -758,6 +823,8 @@ CGameObject *CGameObject::LoadFrameHierarchyFromFile(ID3D12Device *pd3dDevice, I
 			nReads = (UINT)::fread(&nStrLength, sizeof(BYTE), 1, pInFile);
 			nReads = (UINT)::fread(pGameObject->m_pstrFrameName, sizeof(char), nStrLength, pInFile);
 			pGameObject->m_pstrFrameName[nStrLength] = '\0';
+            // _stprintf_s(buffer, L"CGameObject::LoadFrameHierarchyFromFile() - pGameObject %p FrameName: %hs\n", pGameObject, pGameObject->m_pstrFrameName);
+            // OutputDebugString(buffer);
 		}
 		else if (!strcmp(pstrToken, "<Transform>:"))
 		{
@@ -777,15 +844,21 @@ CGameObject *CGameObject::LoadFrameHierarchyFromFile(ID3D12Device *pd3dDevice, I
 			CStandardMesh *pMesh = new CStandardMesh(pd3dDevice, pd3dCommandList);
 			pMesh->LoadMeshFromFile(pd3dDevice, pd3dCommandList, pInFile);
 			pGameObject->SetMesh(0, pMesh);
+            // _stprintf_s(buffer, L"CGameObject::LoadFrameHierarchyFromFile() - pGameObject %p SetMesh(0, %p)\n", pGameObject, pMesh);
+            // OutputDebugString(buffer);
 		}
 		else if (!strcmp(pstrToken, "<Materials>:"))
 		{
 			pGameObject->LoadMaterialsFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, pParent, pInFile, pShader);
+            // _stprintf_s(buffer, L"CGameObject::LoadFrameHierarchyFromFile() - pGameObject %p Called LoadMaterialsFromFile()\n", pGameObject);
+            // OutputDebugString(buffer);
 		}
 		else if (!strcmp(pstrToken, "<Children>:"))
 		{
 			int nChilds = 0;
 			nReads = (UINT)::fread(&nChilds, sizeof(int), 1, pInFile);
+            // _stprintf_s(buffer, L"CGameObject::LoadFrameHierarchyFromFile() - pGameObject %p has %d children\n", pGameObject, nChilds);
+            // OutputDebugString(buffer);
 			if (nChilds > 0)
 			{
 				for (int i = 0; i < nChilds; i++)
@@ -802,9 +875,13 @@ CGameObject *CGameObject::LoadFrameHierarchyFromFile(ID3D12Device *pd3dDevice, I
 		}
 		else if (!strcmp(pstrToken, "</Frame>"))
 		{
+            // _stprintf_s(buffer, L"CGameObject::LoadFrameHierarchyFromFile() - pGameObject %p Exiting Frame\n", pGameObject);
+            // OutputDebugString(buffer);
 			break;
 		}
 	}
+    // _stprintf_s(buffer, L"CGameObject::LoadFrameHierarchyFromFile() EXIT. Returning pGameObject: %p\n", pGameObject);
+    // OutputDebugString(buffer);
 	return(pGameObject);
 }
 
@@ -987,7 +1064,7 @@ CHeightMapTerrain::CHeightMapTerrain(ID3D12Device* pd3dDevice, ID3D12GraphicsCom
 
 	m_nMeshes = cxBlocks * czBlocks;
 	m_ppMeshes = new CMesh * [m_nMeshes];
-	for (int i = 0; i < m_nMeshes; i++)	m_ppMeshes[i] = NULL;
+	for (int i = 0; i < m_nMeshes; i++) m_ppMeshes[i] = NULL;
 
 	CHeightMapGridMesh* pHeightMapGridMesh = NULL;
 	for (int z = 0, zStart = 0; z < czBlocks; z++)
@@ -1023,4 +1100,3 @@ CHeightMapTerrain::~CHeightMapTerrain(void)
 {
 	if (m_pHeightMapImage) delete m_pHeightMapImage;
 }
-
