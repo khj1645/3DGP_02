@@ -152,6 +152,7 @@ VS_STANDARD_OUTPUT VSStandard(VS_STANDARD_INPUT input)
 
 float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
 {
+
 	float4 cAlbedoColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	float4 cSpecularColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	float4 cNormalColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -175,6 +176,13 @@ float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
         cColor = lerp(cColor, cIllumination, 0.5f);
     }
     return cColor;
+}
+
+float4 PSStandardPlayer(VS_STANDARD_OUTPUT input) : SV_TARGET
+{
+	float4 c = PSStandard(input); // 기존 로직 재사용(함수로 빼는 게 더 좋음)
+	c.a = 0.3f; // 투명도 30%
+	return c;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -432,4 +440,100 @@ float4 PSBillboard(PS_BILLBOARD_INPUT input) : SV_TARGET
 	clip(color.a - 0.1f);
 	
 	return color;
+}
+
+//=================================================================================================================================================
+// EXPLOSION SHADERS
+//=================================================================================================================================================
+
+#define EXP_FRAME_COLS 8
+#define EXP_FRAME_ROWS 8
+
+struct VS_GS_INPUT
+{
+    float3 position : POSITION;
+    uint   frame    : TEXCOORD0; // Frame index
+};
+
+struct GS_PS_INPUT
+{
+    float4 position : SV_POSITION;
+    float2 uv       : TEXCOORD0;
+	uint   frame    : TEXCOORD1;
+};
+
+// Vertex Shader: Pass vertex position and frame index to the Geometry Shader
+VS_GS_INPUT VS_Explosion(float3 position : POSITION)
+{
+    VS_GS_INPUT output;
+    output.position = mul(float4(position, 1.0f), gmtxGameObject).xyz;
+    output.frame = gnTexturesMask; // Re-using gnTexturesMask from cbGameObjectInfo as the frame index
+    return output;
+}
+
+// Geometry Shader: Generate a quad billboard facing the camera from a single point
+[maxvertexcount(4)]
+void GS_Explosion(point VS_GS_INPUT input[1], inout TriangleStream<GS_PS_INPUT> outputStream)
+{
+    float3 up = float3(gmtxView._12, gmtxView._22, gmtxView._32);
+    float3 right = float3(gmtxView._11, gmtxView._21, gmtxView._31);
+
+    float halfSize = 20.0f; // Explosion size
+
+    float4 positions[4];
+    positions[0] = float4(input[0].position + (-right + up) * halfSize, 1.0f);
+    positions[1] = float4(input[0].position + ( right + up) * halfSize, 1.0f);
+    positions[2] = float4(input[0].position + (-right - up) * halfSize, 1.0f);
+    positions[3] = float4(input[0].position + ( right - up) * halfSize, 1.0f);
+
+    GS_PS_INPUT output;
+    
+    output.position = mul(positions[0], gmtxView);
+    output.position = mul(output.position, gmtxProjection);
+    output.uv = float2(0.0f, 0.0f);
+	output.frame = input[0].frame;
+    outputStream.Append(output);
+
+    output.position = mul(positions[1], gmtxView);
+    output.position = mul(output.position, gmtxProjection);
+    output.uv = float2(1.0f, 0.0f);
+	output.frame = input[0].frame;
+    outputStream.Append(output);
+
+    output.position = mul(positions[2], gmtxView);
+    output.position = mul(output.position, gmtxProjection);
+    output.uv = float2(0.0f, 1.0f);
+	output.frame = input[0].frame;
+    outputStream.Append(output);
+
+	output.position = mul(positions[3], gmtxView);
+    output.position = mul(output.position, gmtxProjection);
+    output.uv = float2(1.0f, 1.0f);
+	output.frame = input[0].frame;
+    outputStream.Append(output);
+	
+	outputStream.RestartStrip();
+}
+
+// Pixel Shader: Calculate the correct UV for the sprite sheet and sample the texture
+float4 PS_Explosion(GS_PS_INPUT input) : SV_TARGET
+{
+    uint frame = input.frame;
+    
+    float fCellW = 1.0f / EXP_FRAME_COLS;
+    float fCellH = 1.0f / EXP_FRAME_ROWS;
+    
+    uint u_idx = frame % EXP_FRAME_COLS;
+    uint v_idx = frame / EXP_FRAME_COLS;
+    
+    float2 startUV = float2(u_idx * fCellW, v_idx * fCellH);
+    
+    float2 finalUV = startUV + input.uv * float2(fCellW, fCellH);
+    
+    float4 color = gtxtAlbedoTexture.Sample(gssWrap, finalUV);
+    
+    // Discard pixel if alpha is too low to prevent square outlines
+    clip(color.a - 0.01f); 
+    
+    return color;
 }

@@ -472,6 +472,31 @@ void CGameFramework::ProcessInput()
 				}
 				if (dwDirection) m_pPlayer->Move(dwDirection, 1.25f, true);
 			}
+
+			static float fFireCooldown = 0.0f;
+			fFireCooldown -= m_GameTimer.GetTimeElapsed();
+			if (pKeysBuffer[VK_CONTROL] & 0xF0)
+			{
+				if (fFireCooldown <= 0.0f)
+				{
+					fFireCooldown = 0.2f; // 5 bullets per second
+
+					XMFLOAT3 xmf3Position = m_pPlayer->GetPosition();
+					XMFLOAT3 xmf3Look = m_pPlayer->GetLook();
+					XMFLOAT3 xmf3Up = m_pPlayer->GetUp();
+
+					float fForwardOffset = 6.0f;
+					float fUpOffset = 3.0f;
+
+					XMFLOAT3 xmf3FirePosition = Vector3::Add(xmf3Position, Vector3::ScalarProduct(xmf3Look, fForwardOffset, false));
+					xmf3FirePosition = Vector3::Add(xmf3FirePosition, Vector3::ScalarProduct(xmf3Up, fUpOffset, false));
+
+					if (m_pScene)
+					{
+						m_pScene->SpawnBullet(xmf3FirePosition, xmf3Look);
+					}
+				}
+			}
 		}
 		m_pPlayer->Update(m_GameTimer.GetTimeElapsed());
 	}
@@ -557,7 +582,7 @@ void CGameFramework::FrameAdvance()
 #ifdef _WITH_PLAYER_TOP
 		m_pd3dCommandList->ClearDepthStencilView(d3dDsvCPUDescriptorHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, NULL);
 #endif
-		if (m_pPlayer) m_pPlayer->Render(m_pd3dCommandList, m_pCamera);
+		//if (m_pPlayer) m_pPlayer->Render(m_pd3dCommandList, m_pCamera);
 	}
 	else
 	{

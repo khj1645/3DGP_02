@@ -7,6 +7,8 @@ public:
     CUIRectMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, float x, float y, float width, float height);
     virtual ~CUIRectMesh();
 
+    void SetUVRect(float u0, float v0, float u1, float v1);
+
     virtual void ReleaseUploadBuffers();
     virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, int nSubSet);
 

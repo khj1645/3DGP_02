@@ -32,9 +32,7 @@ CBillboardObject::~CBillboardObject()
 void CBillboardObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
 {
     XMFLOAT3 pos = GetPosition();
-    WCHAR debugMessage[256];
-    swprintf_s(debugMessage, L"Rendering BillboardObject at X: %.2f, Y: %.2f, Z: %.2f\n", pos.x, pos.y, pos.z);
-    OutputDebugString(debugMessage);
+
 
     CGameObject::Render(pd3dCommandList, pCamera);
 }

@@ -343,6 +343,85 @@ void CStandardShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsComma
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+CExplosionShader::CExplosionShader()
+{
+}
+
+CExplosionShader::~CExplosionShader()
+{
+}
+
+D3D12_INPUT_LAYOUT_DESC CExplosionShader::CreateInputLayout()
+{
+	UINT nInputElementDescs = 1;
+	D3D12_INPUT_ELEMENT_DESC *pd3dInputElementDescs = new D3D12_INPUT_ELEMENT_DESC[nInputElementDescs];
+	pd3dInputElementDescs[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+
+	D3D12_INPUT_LAYOUT_DESC d3dInputLayoutDesc;
+	d3dInputLayoutDesc.pInputElementDescs = pd3dInputElementDescs;
+	d3dInputLayoutDesc.NumElements = nInputElementDescs;
+
+	return(d3dInputLayoutDesc);
+}
+
+D3D12_SHADER_BYTECODE CExplosionShader::CreateVertexShader(ID3DBlob** ppd3dShaderBlob)
+{
+	return(CShader::CompileShaderFromFile(L"Shaders.hlsl", "VS_Explosion", "vs_5_1", ppd3dShaderBlob));
+}
+
+D3D12_SHADER_BYTECODE CExplosionShader::CreateGeometryShader(ID3DBlob** ppd3dShaderBlob)
+{
+	return(CShader::CompileShaderFromFile(L"Shaders.hlsl", "GS_Explosion", "gs_5_1", ppd3dShaderBlob));
+}
+
+D3D12_SHADER_BYTECODE CExplosionShader::CreatePixelShader(ID3DBlob** ppd3dShaderBlob)
+{
+	return(CShader::CompileShaderFromFile(L"Shaders.hlsl", "PS_Explosion", "ps_5_1", ppd3dShaderBlob));
+}
+
+void CExplosionShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature)
+{
+	m_nPipelineStates = 1;
+	m_ppd3dPipelineStates = new ID3D12PipelineState*[m_nPipelineStates];
+
+	::ZeroMemory(&m_d3dPipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	m_d3dPipelineStateDesc.pRootSignature = pd3dGraphicsRootSignature;
+	m_d3dPipelineStateDesc.VS = CreateVertexShader(&m_pd3dVertexShaderBlob);
+	m_d3dPipelineStateDesc.GS = CreateGeometryShader(&m_pd3dGeometryShaderBlob);
+	m_d3dPipelineStateDesc.PS = CreatePixelShader(&m_pd3dPixelShaderBlob);
+	m_d3dPipelineStateDesc.RasterizerState = CreateRasterizerState();
+	
+	D3D12_BLEND_DESC d3dBlendDesc = CreateBlendState();
+	d3dBlendDesc.RenderTarget[0].BlendEnable = TRUE;
+	d3dBlendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	d3dBlendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+	d3dBlendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+	m_d3dPipelineStateDesc.BlendState = d3dBlendDesc;
+
+	D3D12_DEPTH_STENCIL_DESC d3dDepthStencilDesc = CreateDepthStencilState();
+	d3dDepthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	m_d3dPipelineStateDesc.DepthStencilState = d3dDepthStencilDesc;
+
+	m_d3dPipelineStateDesc.InputLayout = CreateInputLayout();
+	m_d3dPipelineStateDesc.SampleMask = UINT_MAX;
+	m_d3dPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+	m_d3dPipelineStateDesc.NumRenderTargets = 1;
+	m_d3dPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	m_d3dPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	m_d3dPipelineStateDesc.SampleDesc.Count = 1;
+	m_d3dPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+	HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void **)&m_ppd3dPipelineStates[0]);
+
+	if (m_pd3dVertexShaderBlob) m_pd3dVertexShaderBlob->Release();
+	if (m_pd3dPixelShaderBlob) m_pd3dPixelShaderBlob->Release();
+	if (m_pd3dGeometryShaderBlob) m_pd3dGeometryShaderBlob->Release();
+
+	if (m_d3dPipelineStateDesc.InputLayout.pInputElementDescs) delete[] m_d3dPipelineStateDesc.InputLayout.pInputElementDescs;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 CObjectsShader::CObjectsShader()
 {
 	m_nObjects = 120;
@@ -397,12 +476,14 @@ void CObjectsShader::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsComman
 				m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
 				m_ppObjects[nObjects]->SetChild(pSuperCobraModel);
 				pSuperCobraModel->AddRef();
+				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
 			}
 			else
 			{
 				m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
 				m_ppObjects[nObjects]->SetChild(pGunshipModel);
 				pGunshipModel->AddRef();
+				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
 			}
 			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(20.0f, 150.0f), h - int(floor(nColumnSize / 2.0f)), nColumnSpace);
 			m_ppObjects[nObjects]->SetPosition(xmf3RandomPosition.x, xmf3RandomPosition.y + 750.0f, xmf3RandomPosition.z);
@@ -420,12 +501,14 @@ void CObjectsShader::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsComman
 				m_ppObjects[nObjects] = new CSuperCobraObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
 				m_ppObjects[nObjects]->SetChild(pSuperCobraModel);
 				pSuperCobraModel->AddRef();
+				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
 			}
 			else
 			{
 				m_ppObjects[nObjects] = new CGunshipObject(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
 				m_ppObjects[nObjects]->SetChild(pGunshipModel);
 				pGunshipModel->AddRef();
+				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
 			}
 			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(20.0f, 150.0f), nColumnSize - int(floor(nColumnSize / 2.0f)), nColumnSpace);
 			m_ppObjects[nObjects]->SetPosition(xmf3RandomPosition.x, xmf3RandomPosition.y + 850.0f, xmf3RandomPosition.z);
@@ -505,20 +588,94 @@ D3D12_SHADER_BYTECODE CPlayerShader::CreateVertexShader()
 
 D3D12_SHADER_BYTECODE CPlayerShader::CreatePixelShader()
 {
-	return(CShader::CompileShaderFromFile(L"Shaders.hlsl", "PSStandard", "ps_5_1", &m_pd3dPixelShaderBlob));
+	return(CShader::CompileShaderFromFile(L"Shaders.hlsl", "PSStandardPlayer", "ps_5_1", &m_pd3dPixelShaderBlob));
 }
 
-void CPlayerShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature)
+D3D12_BLEND_DESC CPlayerShader::CreatePlayerBlendState()
 {
-	m_nPipelineStates = 1;
-	m_ppd3dPipelineStates = new ID3D12PipelineState*[m_nPipelineStates];
+	D3D12_BLEND_DESC desc{};
+	desc.AlphaToCoverageEnable = FALSE;
+	desc.IndependentBlendEnable = FALSE;
 
-	CShader::CreateShader(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature);
+	auto& rt = desc.RenderTarget[0];
+	rt.BlendEnable = TRUE;
+	rt.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
+	rt.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	rt.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	rt.BlendOp = D3D12_BLEND_OP_ADD;
+
+	rt.SrcBlendAlpha = D3D12_BLEND_ONE;
+	rt.DestBlendAlpha = D3D12_BLEND_ZERO;
+	rt.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+
+	return desc;
+}
+
+D3D12_DEPTH_STENCIL_DESC CPlayerShader::CreatePlayerDepthStencilState()
+{
+	D3D12_DEPTH_STENCIL_DESC d{};
+
+	d.DepthEnable = TRUE;
+	d.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+	d.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+
+	d.StencilEnable = FALSE;
+	d.StencilReadMask = 0xff;
+	d.StencilWriteMask = 0xff;
+
+	d.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+	d.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+	d.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+	d.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+	d.BackFace = d.FrontFace;
+
+	return d;
+}
+
+void CPlayerShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, ID3D12RootSignature* pd3dGraphicsRootSignature)
+{
+	m_nPipelineStates = 2;
+	m_ppd3dPipelineStates = new ID3D12PipelineState * [m_nPipelineStates];
+	::ZeroMemory(m_ppd3dPipelineStates, sizeof(ID3D12PipelineState*) * m_nPipelineStates);
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC d3dPipelineStateDesc;
+	::ZeroMemory(&d3dPipelineStateDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	d3dPipelineStateDesc.pRootSignature = pd3dGraphicsRootSignature;
+	d3dPipelineStateDesc.VS = CreateVertexShader();
+	d3dPipelineStateDesc.PS = CreatePixelShader();
+	d3dPipelineStateDesc.RasterizerState = CreateRasterizerState();
+	d3dPipelineStateDesc.InputLayout = CreateInputLayout();
+	d3dPipelineStateDesc.SampleMask = UINT_MAX;
+	d3dPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	d3dPipelineStateDesc.NumRenderTargets = 1;
+	d3dPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	d3dPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	d3dPipelineStateDesc.SampleDesc.Count = 1;
+	d3dPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+	// PSO[0]: Opaque
+	d3dPipelineStateDesc.BlendState = CreateBlendState();
+	d3dPipelineStateDesc.DepthStencilState = CreateDepthStencilState();
+	HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[0]));
+	if (FAILED(hResult))
+	{
+		::MessageBox(NULL, L"CPlayerShader::CreateShader() - FAILED Opaque PipelineState!", L"Error", MB_OK);
+	}
+
+	// PSO[1]: Blending
+	d3dPipelineStateDesc.BlendState = CreatePlayerBlendState();
+	d3dPipelineStateDesc.DepthStencilState = CreatePlayerDepthStencilState();
+	hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[1]));
+	if (FAILED(hResult))
+	{
+		::MessageBox(NULL, L"CPlayerShader::CreateShader() - FAILED Blending PipelineState!", L"Error", MB_OK);
+	}
+
+	if (d3dPipelineStateDesc.InputLayout.pInputElementDescs)
+		delete[] d3dPipelineStateDesc.InputLayout.pInputElementDescs;
 	if (m_pd3dVertexShaderBlob) m_pd3dVertexShaderBlob->Release();
 	if (m_pd3dPixelShaderBlob) m_pd3dPixelShaderBlob->Release();
-
-	if (m_d3dPipelineStateDesc.InputLayout.pInputElementDescs) delete[] m_d3dPipelineStateDesc.InputLayout.pInputElementDescs;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

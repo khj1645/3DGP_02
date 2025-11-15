@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // File: CGameObject.cpp
 //-----------------------------------------------------------------------------
 
@@ -318,6 +318,9 @@ CGameObject::CGameObject()
 {
 	m_xmf4x4Transform = Matrix4x4::Identity();
 	m_xmf4x4World = Matrix4x4::Identity();
+	m_xmf3LocalAABBMin = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	m_xmf3LocalAABBMax = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	m_bRender = true;
 }
 
 CGameObject::CGameObject(int nMeshes, int nMaterials) : CGameObject()
@@ -449,6 +452,8 @@ CGameObject *CGameObject::FindFrame(char *pstrFrameName)
 
 void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
 {
+	if (!m_bRender) return;
+
 	OnPrepareRender();
 
 	if (pCamera) UpdateShaderVariable(pd3dCommandList, &m_xmf4x4World);
@@ -459,7 +464,7 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 		{
 			if (m_ppMaterials[i])
 			{
-				if (m_ppMaterials[i]->m_pShader) m_ppMaterials[i]->m_pShader->Render(pd3dCommandList, pCamera);
+				if (m_ppMaterials[i]->m_pShader) m_ppMaterials[i]->m_pShader->OnPrepareRender(pd3dCommandList);
 				m_ppMaterials[i]->UpdateShaderVariables(pd3dCommandList);
 			}
 
@@ -473,7 +478,7 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 	{
 		if ((m_nMaterials == 1) && (m_ppMaterials[0]))
 		{
-			if (m_ppMaterials[0]->m_pShader) m_ppMaterials[0]->m_pShader->Render(pd3dCommandList, pCamera);
+			if (m_ppMaterials[0]->m_pShader) m_ppMaterials[0]->m_pShader->OnPrepareRender(pd3dCommandList);
 			m_ppMaterials[0]->UpdateShaderVariables(pd3dCommandList);
 		}
 
@@ -542,6 +547,10 @@ void CGameObject::ReleaseUploadBuffers()
 void CGameObject::UpdateTransform(XMFLOAT4X4 *pxmf4x4Parent)
 {
 	m_xmf4x4World = (pxmf4x4Parent) ? Matrix4x4::Multiply(m_xmf4x4Transform, *pxmf4x4Parent) : m_xmf4x4Transform;
+
+	DirectX::BoundingBox localAABB;
+	BoundingBox::CreateFromPoints(localAABB, XMLoadFloat3(&m_xmf3LocalAABBMin), XMLoadFloat3(&m_xmf3LocalAABBMax));
+	localAABB.Transform(m_WorldAABB, XMLoadFloat4x4(&m_xmf4x4World));
 
 	if (m_pSibling) m_pSibling->UpdateTransform(pxmf4x4Parent);
 	if (m_pChild) m_pChild->UpdateTransform(&m_xmf4x4World);
@@ -881,6 +890,80 @@ void CGameObject::PrintFrameInfo(CGameObject *pGameObject, CGameObject *pParent)
 
 	if (pGameObject->m_pSibling) CGameObject::PrintFrameInfo(pGameObject->m_pSibling, pParent);
 	if (pGameObject->m_pChild) CGameObject::PrintFrameInfo(pGameObject->m_pChild, pGameObject);
+}
+
+CBullet::CBullet() : CGameObject(1, 1)
+{
+	m_xmf3Direction = XMFLOAT3(0.0f, 0.0f, 1.0f);
+	m_fSpeed = 0.1f;
+	m_fLifeTime = 3.0f;
+	m_fAge = 0.0f;
+	m_bAlive = true;
+
+	SetLocalAABB(XMFLOAT3(-0.5f, -0.5f, -2.0f), XMFLOAT3(0.5f, 0.5f, 2.0f));
+}
+
+void CBullet::Animate(float fTimeElapsed, XMFLOAT4X4* pxmf4x4Parent)
+{
+	if (!m_bAlive)
+		return;
+
+	m_fAge += fTimeElapsed;
+	if (m_fAge >= m_fLifeTime)
+	{
+		Kill();
+		return;
+	}
+
+	XMFLOAT3 xmf3CurrentPosition = GetPosition();
+	XMFLOAT3 xmf3Shift = Vector3::ScalarProduct(m_xmf3Direction, m_fSpeed * fTimeElapsed, false);
+	XMFLOAT3 xmf3NewPosition = Vector3::Add(xmf3CurrentPosition, xmf3Shift);
+
+	SetPosition(xmf3NewPosition);
+
+	CGameObject::Animate(fTimeElapsed, pxmf4x4Parent);
+}
+
+CExplosionObject::CExplosionObject() : CGameObject(1, 1) // 1 mesh, 1 material
+{
+	// The mesh and material will be set later by the Scene
+}
+
+CExplosionObject::~CExplosionObject() { }
+
+void CExplosionObject::Start(const XMFLOAT3& xmf3Position)
+{
+	SetPosition(xmf3Position);
+	UpdateTransform(nullptr);
+
+	m_bIsAlive = true;
+	m_bRender = true;
+	m_fAge = 0.0f;
+	m_nCurrentFrame = 0;
+    
+	// We'll reuse the m_nType field of CMaterial to pass the frame index.
+	if (m_ppMaterials[0]) m_ppMaterials[0]->m_nType = m_nCurrentFrame; 
+}
+
+void CExplosionObject::Animate(float fTimeElapsed, XMFLOAT4X4* pxmf4x4Parent)
+{
+	if (!m_bIsAlive) return;
+
+	m_fAge += fTimeElapsed;
+	if (m_fAge > EXPLOSION_FRAME_TIME)
+	{
+		m_nCurrentFrame++;
+		m_fAge = 0.0f;
+		if (m_nCurrentFrame > MAX_EXPLOSION_FRAME)
+		{
+			m_bIsAlive = false;
+			m_bRender = false;
+		}
+		// Use a field in CMaterial to store the frame index
+		if (m_ppMaterials[0]) m_ppMaterials[0]->m_nType = m_nCurrentFrame; 
+	}
+
+	CGameObject::Animate(fTimeElapsed, pxmf4x4Parent);
 }
 
 CGameObject *CGameObject::LoadGeometryFromFile(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature, char *pstrFileName, CShader* pShader)

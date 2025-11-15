@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // File: Scene.h
 //-----------------------------------------------------------------------------
 
@@ -13,6 +13,10 @@
 #include "ScreenQuadMesh.h" // Added for Screen Quad Mesh (for background)
 #include "UIShader.h" // Added for UI Shader
 #include "WaterObject.h" // Added for CWaterObject
+#include "CubeMesh.h"
+#include <vector>
+
+class CBullet;
 
 struct VS_CB_WATER_ANIMATION
 {
@@ -118,12 +122,46 @@ public:
 	CGameObject* PickObjectByRayIntersection(XMFLOAT3& xmf3PickPosition, XMFLOAT4X4& xmf4x4View);
 	void UpdateUIButtons(float fTimeElapsed); // New: Function to update UI button states
 
+	CBullet* SpawnBullet(const XMFLOAT3& xmf3Position, XMFLOAT3& xmf3Direction);
+	void AnimateBullets(float fTimeElapsed);
+	void RenderBullets(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera);
+	void CheckBulletCollisions();
+
 protected:
-	CGameFramework						*m_pGameFramework = NULL;
+	// UI for enemy count
+	CTexture* m_pNumberTexture = nullptr;
+	CMaterial* m_pNumberMaterial = nullptr;
+	static const int m_nMaxEnemyDigits = 3;
+	CGameObject* m_pEnemyCountDigits[m_nMaxEnemyDigits] = { nullptr, };
 
-		CGameObject*					m_pMainMenuObject = NULL;
+	int GetRemainingEnemyCount();
+	void SetDigitUV(CGameObject* pDigit, int digit);
+	void UpdateEnemyCountUI();
 
-	
+protected:
+	CGameFramework* m_pGameFramework = NULL;
+
+	CGameObject* m_pMainMenuObject = NULL;
+
+	std::vector<CBullet*> m_vBullets;
+	CCubeMesh* m_pBulletMesh = NULL;
+	CMaterial* m_pBulletMaterial = NULL;
+
+	// Explosion effect resources
+	CPointMesh* m_pExplosionMesh = nullptr;
+	CMaterial* m_pExplosionMaterial = nullptr;
+	CShader* m_pExplosionShader = nullptr; // CExplosionShader
+
+	// Explosion object pool
+	std::vector<CExplosionObject*> m_vExplosions;
+	int m_nNextExplosion = 0;
+
+public:
+	void SpawnExplosion(const XMFLOAT3& position);
+
+protected:
+	void AnimateExplosions(float fTimeElapsed);
+	void RenderExplosions(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera);
 
 	protected:
 	ID3D12RootSignature*					m_pd3dGraphicsRootSignature = NULL;

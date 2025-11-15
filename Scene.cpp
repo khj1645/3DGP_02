@@ -8,6 +8,7 @@
 #include "UIRectMesh.h" // Added for UI Rect Mesh
 #include "ScreenQuadMesh.h" // Added for Screen Quad Mesh
 #include "UIShader.h" // Added for UI Shader
+#include "Object.h"
 #include "WaterObject.h" // Added for CWaterObject
 #include "WaterShader.h" // Added for CWaterShader
 #include "GameFramework.h"
@@ -207,7 +208,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 
 	BuildDefaultLightsAndMaterials();
 
-	m_nShaders = 4;
+	m_nShaders = 5;
 	m_ppShaders = new CShader*[m_nShaders];
 
 	CObjectsShader* pObjectsShader = new CObjectsShader();
@@ -230,7 +231,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	float waterWidth = 257 * xmf3Scale.x;
 	float waterLength = 257 * xmf3Scale.z;
 	m_pWater = new CWaterObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, pWaterShader, waterWidth, waterLength);
-	m_pWater->SetPosition(920.0f, 745.0f, 1270.0f);
+	m_pWater->SetPosition(920.0f, 545.0f, 1270.0f);
 
 	CUIShader* pUIShader = new CUIShader();
 	pUIShader->AddRef();
@@ -295,6 +296,42 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 	pExitButtonHoverMaterial->SetShader(pUIShader);
 	m_pExitButtonHoverObject->SetMaterial(0, pExitButtonHoverMaterial);
 
+	// Create UI for enemy count
+	// 1) Load number texture (0-9 texture sheet)
+	m_pNumberTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	m_pNumberTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"UI/num.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, m_pNumberTexture, 0);
+	m_pNumberTexture->SetRootParameterIndex(0, 0);
+
+	// 2) Create material for numbers
+	m_pNumberMaterial = new CMaterial();
+	m_pNumberMaterial->AddRef();
+	m_pNumberMaterial->SetTexture(m_pNumberTexture);
+	m_pNumberMaterial->SetShader(pUIShader); // Reuse the same CUIShader
+
+	// 3) Create digit objects (e.g., 3 digits on the top-right of the screen)
+	float digitWidth = 0.05f;
+	float digitHeight = 0.08f;
+	// Base position in normalized coordinates [0,1] (Top-Left is 0,0)
+	float baseX = 0.83f; // Near top-right
+	float baseY = 0.05f;
+
+	for (int i = 0; i < m_nMaxEnemyDigits; i++)
+	{
+		m_pEnemyCountDigits[i] = new CGameObject(1, 1);
+
+		// Position each digit next to the previous one
+		float x = baseX + (digitWidth * i);
+		float y = baseY;
+
+		CUIRectMesh* pDigitMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, x, y, digitWidth, digitHeight);
+		m_pEnemyCountDigits[i]->SetMesh(0, pDigitMesh);
+		m_pEnemyCountDigits[i]->SetMaterial(0, m_pNumberMaterial);
+
+		// Set initial UV to display '0'. The SetDigitUV function will be implemented next.
+		SetDigitUV(m_pEnemyCountDigits[i], 0);
+	}
+
 	m_pBillboardShader = new CBillboardShader();
 	m_pBillboardShader->AddRef();
 	m_pBillboardShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
@@ -320,6 +357,47 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 		
 		CBillboardObject* pBillboardObject = new CBillboardObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, billboardPosition, m_pBillboardShader, m_pBillboardTexture);
 		m_ppBillboardObjects[i] = pBillboardObject;
+	}
+
+	// Bullet Resources
+	m_pBulletMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 5.0f, 4.0f, 5.0f);
+	m_pBulletMesh->AddRef();
+	m_pBulletMaterial = new CMaterial();
+	m_pBulletMaterial->AddRef();
+	m_pBulletMaterial->m_xmf4AlbedoColor = XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f); //Yellow
+	m_pBulletMaterial->SetShader(pObjectsShader); //Reuse the standard object shader
+
+	// 1. Explosion Resources
+	// 1.1. Create Explosion Shader
+	m_pExplosionShader = new CExplosionShader();
+	m_pExplosionShader->AddRef();
+	m_pExplosionShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
+	m_ppShaders[4] = m_pExplosionShader;
+
+	// 1.2. Load Texture and Create Material
+	CTexture* pExplosionTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
+	pExplosionTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/Effect.dds", RESOURCE_TEXTURE2D, 0);
+	CScene::CreateShaderResourceView(pd3dDevice, pExplosionTexture, 0, 3); // Assuming root parameter 3 is for albedo
+
+	m_pExplosionMaterial = new CMaterial();
+	m_pExplosionMaterial->AddRef();
+	m_pExplosionMaterial->SetTexture(pExplosionTexture);
+	m_pExplosionMaterial->SetShader(m_pExplosionShader);
+
+	// 1.3. Create single-point mesh
+	XMFLOAT3 xmf3Position(0.0f, 0.0f, 0.0f);
+	m_pExplosionMesh = new CPointMesh(pd3dDevice, pd3dCommandList, 1, &xmf3Position);
+	m_pExplosionMesh->AddRef();
+
+	// 1.4. Create explosion object pool
+	m_vExplosions.resize(50);
+	for (int i = 0; i < 50; ++i)
+	{
+		m_vExplosions[i] = new CExplosionObject();
+		m_vExplosions[i]->SetMesh(0, m_pExplosionMesh);
+		m_vExplosions[i]->SetMaterial(0, m_pExplosionMaterial);
+		m_vExplosions[i]->m_bRender = false; // Initially inactive
+		m_vExplosions[i]->AddRef();
 	}
 
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
@@ -356,6 +434,24 @@ void CScene::ReleaseObjects()
 	if (m_pTerrain) delete m_pTerrain;
 	if (m_pWater) delete m_pWater;
 	if (m_pSkyBox) delete m_pSkyBox;
+
+	for (auto pBullet : m_vBullets)
+	{
+		if (pBullet) pBullet->Release();
+	}
+	m_vBullets.clear();
+
+	if (m_pBulletMesh) m_pBulletMesh->Release();
+	if (m_pBulletMaterial) m_pBulletMaterial->Release();
+
+	// Release explosion resources
+	for (auto pExplosion : m_vExplosions)
+	{
+		if (pExplosion) pExplosion->Release();
+	}
+	m_vExplosions.clear();
+	if (m_pExplosionMesh) m_pExplosionMesh->Release();
+	if (m_pExplosionMaterial) m_pExplosionMaterial->Release();
 
 	if (m_ppBillboardObjects)
 	{
@@ -716,6 +812,31 @@ void CScene::AnimateObjects(float fTimeElapsed)
 		m_pLights[1].m_xmf3Direction = m_pPlayer->GetLookVector();
 	}
 
+	// Collision Detection
+	if (m_pPlayer && m_ppShaders && m_ppShaders[0])
+	{
+		CObjectsShader* pObjectsShader = dynamic_cast<CObjectsShader*>(m_ppShaders[0]);
+		if (pObjectsShader)
+		{
+			int nObjects = pObjectsShader->GetNumberOfObjects();
+			for (int i = 0; i < nObjects; ++i)
+			{
+				CGameObject* pOtherObject = pObjectsShader->GetObject(i);
+				if (pOtherObject)
+				{
+					if (m_pPlayer->GetWorldAABB().Intersects(pOtherObject->GetWorldAABB()))
+					{
+						pOtherObject->m_bRender = false;
+					}
+				}
+			}
+		}
+	}
+
+	AnimateBullets(fTimeElapsed);
+	AnimateExplosions(fTimeElapsed);
+	CheckBulletCollisions();
+
 	UpdateUIButtons(fTimeElapsed);
 
 	m_xmf4x4WaterAnimation._32 += fTimeElapsed * 0.00125f;
@@ -766,6 +887,168 @@ CGameObject* CScene::PickObjectByRayIntersection(XMFLOAT3& xmf3PickPosition, XMF
     }
 
     return nullptr;
+}
+
+CBullet* CScene::SpawnBullet(const XMFLOAT3& xmf3Position, XMFLOAT3& xmf3Direction)
+{
+	CBullet* pBullet = new CBullet();
+	pBullet->AddRef(); 
+
+	pBullet->SetMesh(0, m_pBulletMesh);
+	pBullet->SetMaterial(0, m_pBulletMaterial);
+
+	pBullet->SetPosition(xmf3Position);
+	pBullet->SetDirection(xmf3Direction);
+	pBullet->SetSpeed(250.0f);
+	pBullet->SetLifeTime(5.0f);
+
+	pBullet->UpdateTransform(NULL);
+
+	m_vBullets.push_back(pBullet);
+	return(pBullet);
+}
+
+void CScene::AnimateBullets(float fTimeElapsed)
+{
+	for (auto it = m_vBullets.begin(); it != m_vBullets.end(); )
+	{
+		CBullet* pBullet = *it;
+		if (pBullet && pBullet->IsAlive())
+		{
+			pBullet->Animate(fTimeElapsed, NULL);
+			pBullet->UpdateTransform(NULL);
+			++it;
+		}
+		else
+		{
+			if (pBullet) pBullet->Release();
+			it = m_vBullets.erase(it);
+		}
+	}
+}
+
+void CScene::CheckBulletCollisions()
+{
+	CObjectsShader* pObjectsShader = dynamic_cast<CObjectsShader*>(m_ppShaders[0]);
+	if (!pObjectsShader) return;
+
+	int nEnemies = pObjectsShader->GetNumberOfObjects();
+
+	for (auto* pBullet : m_vBullets)
+	{
+		if (!pBullet || !pBullet->IsAlive())
+			continue;
+
+		const BoundingBox& bulletBox = pBullet->GetWorldAABB();
+
+		for (int i = 0; i < nEnemies; i++)
+		{
+			CGameObject* pEnemy = pObjectsShader->GetObject(i);
+			if (!pEnemy || !pEnemy->m_bRender) continue;
+
+			const BoundingBox& enemyBox = pEnemy->GetWorldAABB();
+
+			if (bulletBox.Intersects(enemyBox))
+			{
+				SpawnExplosion(pEnemy->GetPosition());
+				pEnemy->m_bRender = false;
+				pBullet->Kill();
+				break; 
+			}
+		}
+	}
+}
+
+int CScene::GetRemainingEnemyCount()
+{
+	// Assuming m_ppShaders[0] is the CObjectsShader that manages enemy objects.
+	CObjectsShader* pObjectsShader = dynamic_cast<CObjectsShader*>(m_ppShaders[0]);
+	if (!pObjectsShader)
+	{
+		return 0;
+	}
+
+	int nEnemies = pObjectsShader->GetNumberOfObjects();
+	int nAlive = 0;
+
+	for (int i = 0; i < nEnemies; i++)
+	{
+		CGameObject* pEnemy = pObjectsShader->GetObject(i);
+		// Count only enemies that are set to be rendered.
+		if (pEnemy && pEnemy->m_bRender)
+		{
+			nAlive++;
+		}
+	}
+	return nAlive;
+}
+
+void CScene::SetDigitUV(CGameObject* pDigit, int digit)
+{
+	if (!pDigit) return;
+
+	// 0~9 클램프
+	if (digit < 0) digit = 0;
+	if (digit > 9) digit = 9;
+
+	int col = digit % 5;
+	int row = digit / 5;   // 0: 0~4, 1: 5~9
+
+	const float cellW = 1.0f / 5.0f;
+	const float cellH = 1.0f / 2.0f;
+
+	float u0 = col * cellW;
+	float u1 = u0 + cellW;
+	float v0 = row * cellH;
+	float v1 = v0 + cellH;
+
+	//  두 번째 줄(5~9)의 세로 위치를 약간 위로 당겨서 정렬
+	//   v는 아래로 갈수록 값이 커지므로, 위로 올리려면 '감소'시켜야 함.
+	if (row == 1)
+	{
+		const float vBias = 0.057f;   // -0.02f ~ -0.05f 사이에서 취향대로 튜닝
+		v0 += vBias;
+		v1 += vBias;
+	}
+
+	// 테두리 블리딩 방지 (필요하면 값 더 줄여도 됨)
+	const float epsU = 0.002f;
+	const float epsV = 0.002f;
+	u0 += epsU; u1 -= epsU;
+	v0 += epsV; v1 -= epsV;
+
+	CUIRectMesh* pMesh = dynamic_cast<CUIRectMesh*>(pDigit->GetMesh(0));
+	if (pMesh) pMesh->SetUVRect(u0, v0, u1, v1);
+}
+
+void CScene::UpdateEnemyCountUI()
+{
+	int nCount = GetRemainingEnemyCount();
+
+	// Clamp count to the displayable range (0-999).
+	if (nCount < 0) nCount = 0;
+	if (nCount > 999) nCount = 999;
+
+	// Decompose the count into hundreds, tens, and ones digits.
+	int d2 = (nCount / 100) % 10; // Hundreds
+	int d1 = (nCount / 10) % 10;  // Tens
+	int d0 = nCount % 10;        // Ones
+
+	// Update each digit's UV coordinates to display the correct number.
+	if (m_pEnemyCountDigits[0]) SetDigitUV(m_pEnemyCountDigits[0], d2);
+	if (m_pEnemyCountDigits[1]) SetDigitUV(m_pEnemyCountDigits[1], d1);
+	if (m_pEnemyCountDigits[2]) SetDigitUV(m_pEnemyCountDigits[2], d0);
+}
+
+void CScene::RenderBullets(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
+{
+	for (auto* pBullet : m_vBullets)
+	{
+		if (pBullet && pBullet->IsAlive())
+		{
+			pBullet->Render(pd3dCommandList, pCamera);
+		}
+	}
 }
 
 void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
@@ -832,7 +1115,144 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 		{
 			if (m_ppBillboardObjects[i]) m_ppBillboardObjects[i]->Render(pd3dCommandList, pCamera);
 		}
+
+		RenderBullets(pd3dCommandList, pCamera);
+
 		if (m_pWater)
 			m_pWater->Render(pd3dCommandList, pCamera);
-	}
-}
+		RenderExplosions(pd3dCommandList, pCamera);
+				// Render In-Game UI (Enemy Count) using direct draw method
+				UpdateEnemyCountUI();
+				CUIShader* pUIShader = dynamic_cast<CUIShader*>(m_ppShaders[1]);
+
+				if (pUIShader)
+
+				{
+
+					// 1) Set UI root signature and pipeline state
+
+					pd3dCommandList->SetGraphicsRootSignature(pUIShader->GetGraphicsRootSignature());
+
+					pUIShader->Render(pd3dCommandList, nullptr, 0); // Sets the PSO for UI
+
+		
+
+					// 2) Bind the number texture SRV to the root signature (param 0)
+
+					if (m_pNumberTexture)
+
+					{
+
+						// We need a way to bind a specific texture to a specific root parameter.
+
+						// Assuming a function like this exists or should exist: 
+
+						// void CTexture::UpdateShaderVariable(ID3D12GraphicsCommandList* pd3dCommandList, int nRootParameterIndex, int nTextureIndex)
+
+						// As per the user's suggestion, we call it with root parameter 0 for the UI texture.
+
+						if (m_pNumberTexture->m_pd3dSrvGpuDescriptorHandles[0].ptr != 0)
+
+						{
+
+							pd3dCommandList->SetGraphicsRootDescriptorTable(0, m_pNumberTexture->m_pd3dSrvGpuDescriptorHandles[0]);
+
+						}
+
+					}
+
+		
+
+					// 3) Render only the mesh for each digit, bypassing the CMaterial/CTexture update path.
+
+					for (int i = 0; i < m_nMaxEnemyDigits; i++)
+
+					{
+
+						if (m_pEnemyCountDigits[i])
+
+						{
+
+							CMesh* pMesh = m_pEnemyCountDigits[i]->GetMesh(0);
+
+							if (pMesh)
+
+							{
+
+								pMesh->Render(pd3dCommandList, 0);
+
+							}
+
+						}
+
+					}
+
+				}
+
+			}
+
+		}
+
+		
+
+		void CScene::SpawnExplosion(const XMFLOAT3& position)
+
+		{
+
+			CExplosionObject* pExplosion = m_vExplosions[m_nNextExplosion];
+
+			pExplosion->Start(position);
+
+		
+
+			m_nNextExplosion = (m_nNextExplosion + 1) % m_vExplosions.size();
+
+		}
+
+		
+
+		void CScene::AnimateExplosions(float fTimeElapsed)
+
+		{
+
+			for (auto& pExplosion : m_vExplosions)
+
+			{
+
+				if (pExplosion->IsAlive())
+
+				{
+
+					pExplosion->Animate(fTimeElapsed, nullptr);
+
+					pExplosion->UpdateTransform(nullptr);
+
+				}
+
+			}
+
+		}
+
+		
+
+		void CScene::RenderExplosions(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
+
+		{
+
+			for (auto& pExplosion : m_vExplosions)
+
+			{
+
+				if (pExplosion && pExplosion->m_bRender)
+
+				{
+
+					pExplosion->Render(pd3dCommandList, pCamera);
+
+				}
+
+			}
+
+		}
+
+		

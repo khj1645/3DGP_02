@@ -32,6 +32,7 @@ class CTexture
 public:
 	CTexture(int nTextureResources, UINT nResourceType, int nSamplers, int nRootParameters);
 	virtual ~CTexture();
+	D3D12_GPU_DESCRIPTOR_HANDLE*	m_pd3dSrvGpuDescriptorHandles = NULL;
 
 private:
 	int								m_nReferences = 0;
@@ -50,7 +51,6 @@ private:
 
 	int								m_nRootParameters = 0;
 	int*							m_pnRootParameterIndices = NULL;
-	D3D12_GPU_DESCRIPTOR_HANDLE*	m_pd3dSrvGpuDescriptorHandles = NULL;
 
 	int								m_nSamplers = 0;
 	D3D12_GPU_DESCRIPTOR_HANDLE*	m_pd3dSamplerGpuDescriptorHandles = NULL;
@@ -195,6 +195,8 @@ public:
 public:
 	char							m_pstrFrameName[64];
 
+	bool							m_bRender;
+
 	int								m_nMeshes = 0;
 	CMesh**							m_ppMeshes = NULL;
 
@@ -203,6 +205,19 @@ public:
 
 	XMFLOAT4X4						m_xmf4x4Transform;
 	XMFLOAT4X4						m_xmf4x4World;
+
+	XMFLOAT3						m_xmf3LocalAABBMin;
+	XMFLOAT3						m_xmf3LocalAABBMax;
+
+	DirectX::BoundingBox			m_WorldAABB;
+
+	void SetLocalAABB(const XMFLOAT3& minPt, const XMFLOAT3& maxPt)
+	{
+		m_xmf3LocalAABBMin = minPt;
+		m_xmf3LocalAABBMax = maxPt;
+	}
+
+	const DirectX::BoundingBox& GetWorldAABB() const { return m_WorldAABB; }
 
 	CGameObject 					*m_pParent = NULL;
 	CGameObject 					*m_pChild = NULL;
@@ -264,6 +279,54 @@ public:
 	static CGameObject *LoadGeometryFromFile(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList, ID3D12RootSignature *pd3dGraphicsRootSignature, char *pstrFileName, CShader *pShader);
 
 	static void PrintFrameInfo(CGameObject *pGameObject, CGameObject *pParent);
+};
+
+class CBullet : public CGameObject
+{
+public:
+	CBullet();
+	virtual ~CBullet() { }
+
+protected:
+	XMFLOAT3 m_xmf3Direction;
+	float m_fSpeed;
+	float m_fLifeTime;
+	float m_fAge;
+	bool m_bAlive;
+
+public:
+	void SetDirection(XMFLOAT3& xmf3Direction)
+	{
+		m_xmf3Direction = Vector3::Normalize(xmf3Direction);
+	}
+
+	void SetSpeed(float fSpeed) { m_fSpeed = fSpeed; }
+	void SetLifeTime(float fLifeTime) { m_fLifeTime = fLifeTime; }
+
+	bool IsAlive() const { return m_bAlive; }
+	void Kill() { m_bAlive = false; m_bRender = false; }
+
+	virtual void Animate(float fTimeElapsed, XMFLOAT4X4* pxmf4x4Parent = NULL) override;
+};
+
+#define MAX_EXPLOSION_FRAME 63 // 8x8 sprite sheet (0~63)
+#define EXPLOSION_FRAME_TIME 0.02f // time per frame
+
+class CExplosionObject : public CGameObject
+{
+public:
+	CExplosionObject();
+	virtual ~CExplosionObject();
+
+	void Start(const XMFLOAT3& xmf3Position);
+	virtual void Animate(float fTimeElapsed, XMFLOAT4X4* pxmf4x4Parent = nullptr);
+
+	bool IsAlive() const { return m_bIsAlive; }
+
+protected:
+	bool m_bIsAlive = false;
+	float m_fAge = 0.0f;
+	int m_nCurrentFrame = 0;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
