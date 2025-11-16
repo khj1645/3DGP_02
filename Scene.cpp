@@ -14,6 +14,8 @@
 #include "GameFramework.h"
 #include "ScreenQuadMesh.h"
 #include "UIShader.h"
+#include "MirrorShader.h"
+#include "Mesh.h"
 
 CDescriptorHeap* CScene::m_pDescriptorHeap = NULL;
 
@@ -199,22 +201,22 @@ void CScene::BuildDefaultLightsAndMaterials()
 	m_pLights[3].m_fTheta = (float)cos(XMConvertToRadians(30.0f));
 }
 
-void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
+void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList)
 {
 	m_pd3dGraphicsRootSignature = CreateGraphicsRootSignature(pd3dDevice);
 
 	m_pDescriptorHeap = new CDescriptorHeap();
-	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 505); 
+	CreateCbvSrvDescriptorHeaps(pd3dDevice, 0, 505);
 
 	BuildDefaultLightsAndMaterials();
 
 	m_nShaders = 5;
-	m_ppShaders = new CShader*[m_nShaders];
+	m_ppShaders = new CShader * [m_nShaders];
 
 	CObjectsShader* pObjectsShader = new CObjectsShader();
 	pObjectsShader->AddRef();
 	pObjectsShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
-	pObjectsShader->BuildObjects(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, NULL);
+	pObjectsShader->BuildObjects(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, m_pTerrain);
 	m_ppShaders[0] = pObjectsShader;
 
 	m_pSkyBox = new CSkyBox(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
@@ -343,10 +345,10 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 
 	int nBillboardsToGenerate = 100;
 	m_nBillboardObjects = nBillboardsToGenerate;
-	m_ppBillboardObjects = new CGameObject*[m_nBillboardObjects];
-	
-	XMFLOAT3 playerInitialPos = XMFLOAT3(920.0f, 745.0f, 1270.0f); 
-	float generationRadius = 200.0f;
+	m_ppBillboardObjects = new CGameObject * [m_nBillboardObjects];
+
+	XMFLOAT3 playerInitialPos = XMFLOAT3(920.0f, 745.0f, 1270.0f);
+	float generationRadius = 600.0f;
 	for (int i = 0; i < nBillboardsToGenerate; ++i)
 	{
 		float x = playerInitialPos.x + (((float)rand() / RAND_MAX) * 2.0f - 1.0f) * generationRadius;
@@ -354,7 +356,7 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 		float y = m_pTerrain->GetHeight(x, z) + 1.0f;
 
 		XMFLOAT3 billboardPosition = XMFLOAT3(x, y, z);
-		
+
 		CBillboardObject* pBillboardObject = new CBillboardObject(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature, billboardPosition, m_pBillboardShader, m_pBillboardTexture);
 		m_ppBillboardObjects[i] = pBillboardObject;
 	}
@@ -400,11 +402,39 @@ void CScene::BuildObjects(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *p
 		m_vExplosions[i]->AddRef();
 	}
 
+	// Create Mirror
+	CTexturedRectMesh* pMirrorMesh = new CTexturedRectMesh(pd3dDevice, pd3dCommandList, 1000.0f, 1000.0f, 0.0f);
+	m_pMirrorObject = new CGameObject(1, 1);
+	m_pMirrorObject->SetMesh(0, pMirrorMesh);
+
+	CMaterial* pMirrorMaterial = new CMaterial();
+	pMirrorMaterial->m_xmf4AmbientColor = XMFLOAT4(0.0f, 1.0f, 0.0f, 0.5f); // Green for debugging
+	pMirrorMaterial->m_xmf4AlbedoColor = XMFLOAT4(0.8f, 0.8f, 0.9f, 0.3f); // Semi-transparent
+	m_pMirrorObject->SetMaterial(0, pMirrorMaterial);
+	// m_pMirrorObject->SetPosition(920.0f, 745.0f, 1300.0f); // Original position
+	// m_pMirrorObject->Rotate(0.0f, 0.0f, 0.0f); // Original rotation
+
+	// Temporarily move mirror in front of player for debugging
+	XMFLOAT3 playerLook = XMFLOAT3(0.0f, 0.0f, 1.0f); // Assuming player initially looks along +Z
+
+	XMFLOAT3 mirrorDebugPos = Vector3::Add(playerInitialPos, Vector3::ScalarProduct(playerLook, 50.0f));
+	m_pMirrorObject->SetPosition(mirrorDebugPos.x, mirrorDebugPos.y, mirrorDebugPos.z);
+	m_pMirrorObject->Rotate(0.0f, 180.0f, 0.0f); // Rotate to face the player
+	m_pMirrorObject->UpdateTransform(NULL);
+
+	m_pMirrorShader = new CMirrorShader(this, m_pMirrorObject);
+	m_pMirrorShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
+
+	// Assign the correct shader to the mirror's material
+	pMirrorMaterial->SetShader(m_pMirrorShader);
+
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
 }
 
 void CScene::ReleaseObjects()
 {
+	if (m_pMirrorObject) m_pMirrorObject->Release();
+
 	if (m_pStartButtonObject) m_pStartButtonObject->Release();
 	if (m_pExitButtonObject) m_pExitButtonObject->Release();
 	if (m_pStartButtonHoverObject) m_pStartButtonHoverObject->Release();
@@ -470,9 +500,9 @@ void CScene::ReleaseObjects()
 	if (m_pDescriptorHeap) delete m_pDescriptorHeap;
 }
 
-ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevice)
+ID3D12RootSignature* CScene::CreateGraphicsRootSignature(ID3D12Device* pd3dDevice)
 {
-	ID3D12RootSignature *pd3dGraphicsRootSignature = NULL;
+	ID3D12RootSignature* pd3dGraphicsRootSignature = NULL;
 
 	D3D12_DESCRIPTOR_RANGE pd3dDescriptorRanges[14];
 
@@ -531,20 +561,20 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 	pd3dDescriptorRanges[8].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	pd3dDescriptorRanges[9].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	pd3dDescriptorRanges[9].NumDescriptors = 3; 
+	pd3dDescriptorRanges[9].NumDescriptors = 3;
 	pd3dDescriptorRanges[9].BaseShaderRegister = 17; //t17: gtxtBillboards[]
 	pd3dDescriptorRanges[9].RegisterSpace = 0;
 	pd3dDescriptorRanges[9].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	pd3dDescriptorRanges[10].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	pd3dDescriptorRanges[10].NumDescriptors = 3; 
-	pd3dDescriptorRanges[10].BaseShaderRegister = 6; 
+	pd3dDescriptorRanges[10].NumDescriptors = 3;
+	pd3dDescriptorRanges[10].BaseShaderRegister = 6;
 	pd3dDescriptorRanges[10].RegisterSpace = 0;
 	pd3dDescriptorRanges[10].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	pd3dDescriptorRanges[11].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	pd3dDescriptorRanges[11].NumDescriptors = 1; 
-	pd3dDescriptorRanges[11].BaseShaderRegister = 23; 
+	pd3dDescriptorRanges[11].NumDescriptors = 1;
+	pd3dDescriptorRanges[11].BaseShaderRegister = 23;
 	pd3dDescriptorRanges[11].RegisterSpace = 0;
 	pd3dDescriptorRanges[11].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
@@ -668,40 +698,40 @@ ID3D12RootSignature *CScene::CreateGraphicsRootSignature(ID3D12Device *pd3dDevic
 	d3dRootSignatureDesc.pStaticSamplers = pd3dSamplerDescs;
 	d3dRootSignatureDesc.Flags = d3dRootSignatureFlags;
 
-	ID3DBlob *pd3dSignatureBlob = NULL;
-	ID3DBlob *pd3dErrorBlob = NULL;
+	ID3DBlob* pd3dSignatureBlob = NULL;
+	ID3DBlob* pd3dErrorBlob = NULL;
 	HRESULT hr = D3D12SerializeRootSignature(&d3dRootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &pd3dSignatureBlob, &pd3dErrorBlob);
 
-    if (FAILED(hr)) {
-        OutputDebugString(L"D3D12SerializeRootSignature FAILED!\n");
-        if (pd3dErrorBlob) {
-            OutputDebugStringA((char*)pd3dErrorBlob->GetBufferPointer());
-            pd3dErrorBlob->Release();
-        }
-        return NULL; // Or handle more gracefully
-    }
+	if (FAILED(hr)) {
+		OutputDebugString(L"D3D12SerializeRootSignature FAILED!\n");
+		if (pd3dErrorBlob) {
+			OutputDebugStringA((char*)pd3dErrorBlob->GetBufferPointer());
+			pd3dErrorBlob->Release();
+		}
+		return NULL; // Or handle more gracefully
+	}
 
-	pd3dDevice->CreateRootSignature(0, pd3dSignatureBlob->GetBufferPointer(), pd3dSignatureBlob->GetBufferSize(), __uuidof(ID3D12RootSignature), (void **)&pd3dGraphicsRootSignature);
+	pd3dDevice->CreateRootSignature(0, pd3dSignatureBlob->GetBufferPointer(), pd3dSignatureBlob->GetBufferSize(), __uuidof(ID3D12RootSignature), (void**)&pd3dGraphicsRootSignature);
 	if (pd3dSignatureBlob) pd3dSignatureBlob->Release();
 	// if (pd3dErrorBlob) pd3dErrorBlob->Release(); // Already released if it existed and failed
 
 	return(pd3dGraphicsRootSignature);
 }
 
-void CScene::CreateShaderVariables(ID3D12Device *pd3dDevice, ID3D12GraphicsCommandList *pd3dCommandList)
+void CScene::CreateShaderVariables(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList)
 {
 	UINT ncbElementBytes = ((sizeof(LIGHTS) + 255) & ~255); //256 
 	m_pd3dcbLights = ::CreateBufferResource(pd3dDevice, pd3dCommandList, NULL, ncbElementBytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, NULL);
 
-	m_pd3dcbLights->Map(0, NULL, (void **)&m_pcbMappedLights);
+	m_pd3dcbLights->Map(0, NULL, (void**)&m_pcbMappedLights);
 
 	ncbElementBytes = ((sizeof(VS_CB_WATER_ANIMATION) + 255) & ~255); //256
 	m_pd3dcbWaterAnimation = ::CreateBufferResource(pd3dDevice, pd3dCommandList, NULL, ncbElementBytes, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, NULL);
 
-	m_pd3dcbWaterAnimation->Map(0, NULL, (void **)&m_pcbMappedWaterAnimation);
+	m_pd3dcbWaterAnimation->Map(0, NULL, (void**)&m_pcbMappedWaterAnimation);
 }
 
-void CScene::UpdateShaderVariables(ID3D12GraphicsCommandList *pd3dCommandList)
+void CScene::UpdateShaderVariables(ID3D12GraphicsCommandList* pd3dCommandList)
 {
 	::memcpy(m_pcbMappedLights->m_pLights, m_pLights, sizeof(LIGHT) * m_nLights);
 	::memcpy(&m_pcbMappedLights->m_xmf4GlobalAmbient, &m_xmf4GlobalAmbient, sizeof(XMFLOAT4));
@@ -794,7 +824,7 @@ bool CScene::OnProcessingKeyboardMessage(HWND hWnd, UINT nMessageID, WPARAM wPar
 	return(false);
 }
 
-bool CScene::ProcessInput(UCHAR *pKeysBuffer)
+bool CScene::ProcessInput(UCHAR* pKeysBuffer)
 {
 	return(false);
 }
@@ -805,7 +835,7 @@ void CScene::AnimateObjects(float fTimeElapsed)
 	for (int i = 0; i < m_nGameObjects; i++) if (m_ppGameObjects[i]) m_ppGameObjects[i]->UpdateTransform(NULL);
 
 	for (int i = 0; i < m_nShaders; i++) if (m_ppShaders[i]) m_ppShaders[i]->AnimateObjects(fTimeElapsed);
-	
+
 	if (m_pLights)
 	{
 		m_pLights[1].m_xmf3Position = m_pPlayer->GetPosition();
@@ -844,55 +874,55 @@ void CScene::AnimateObjects(float fTimeElapsed)
 
 void CScene::UpdateUIButtons(float fTimeElapsed)
 {
-    if (m_pGameFramework->GetGameState() == GameState::MainMenu)
-    {
-    }
+	if (m_pGameFramework->GetGameState() == GameState::MainMenu)
+	{
+	}
 }
 
 CGameObject* CScene::PickObjectByRayIntersection(XMFLOAT3& xmf3PickPosition, XMFLOAT4X4& xmf4x4View)
 {
-    auto IsPointInBox = [](const XMFLOAT3& point, const CGameObject* pObject) -> bool {
-        CMesh* pMesh = pObject->GetMesh(0);
-        if (!pMesh) return false;
+	auto IsPointInBox = [](const XMFLOAT3& point, const CGameObject* pObject) -> bool {
+		CMesh* pMesh = pObject->GetMesh(0);
+		if (!pMesh) return false;
 
-        CUIRectMesh* pUIMesh = dynamic_cast<CUIRectMesh*>(pMesh);
-        if (!pUIMesh) return false;
+		CUIRectMesh* pUIMesh = dynamic_cast<CUIRectMesh*>(pMesh);
+		if (!pUIMesh) return false;
 
-        float normalizedX = pUIMesh->GetNormalizedX();
-        float normalizedY = pUIMesh->GetNormalizedY();
-        float normalizedWidth = pUIMesh->GetNormalizedWidth();
-        float normalizedHeight = pUIMesh->GetNormalizedHeight();
+		float normalizedX = pUIMesh->GetNormalizedX();
+		float normalizedY = pUIMesh->GetNormalizedY();
+		float normalizedWidth = pUIMesh->GetNormalizedWidth();
+		float normalizedHeight = pUIMesh->GetNormalizedHeight();
 
-        float ndcLeft = (normalizedX * 2.0f) - 1.0f;
-        float ndcRight = ndcLeft + (normalizedWidth * 2.0f);
-        float ndcTop = 1.0f - (normalizedY * 2.0f);
-        float ndcBottom = ndcTop - (normalizedHeight * 2.0f);
+		float ndcLeft = (normalizedX * 2.0f) - 1.0f;
+		float ndcRight = ndcLeft + (normalizedWidth * 2.0f);
+		float ndcTop = 1.0f - (normalizedY * 2.0f);
+		float ndcBottom = ndcTop - (normalizedHeight * 2.0f);
 
-        const float epsilon = 0.0001f;
-        if (point.x >= (ndcLeft - epsilon) && point.x <= (ndcRight + epsilon) &&
-            point.y >= (ndcBottom - epsilon) && point.y <= (ndcTop + epsilon)) {
-            return true;
-        }
-        return false;
-    };
+		const float epsilon = 0.0001f;
+		if (point.x >= (ndcLeft - epsilon) && point.x <= (ndcRight + epsilon) &&
+			point.y >= (ndcBottom - epsilon) && point.y <= (ndcTop + epsilon)) {
+			return true;
+		}
+		return false;
+		};
 
-    if (m_pStartButtonObject && IsPointInBox(xmf3PickPosition, m_pStartButtonObject))
-    {
-        return m_pStartButtonObject;
-    }
+	if (m_pStartButtonObject && IsPointInBox(xmf3PickPosition, m_pStartButtonObject))
+	{
+		return m_pStartButtonObject;
+	}
 
-    if (m_pExitButtonObject && IsPointInBox(xmf3PickPosition, m_pExitButtonObject))
-    {
-        return m_pExitButtonObject;
-    }
+	if (m_pExitButtonObject && IsPointInBox(xmf3PickPosition, m_pExitButtonObject))
+	{
+		return m_pExitButtonObject;
+	}
 
-    return nullptr;
+	return nullptr;
 }
 
 CBullet* CScene::SpawnBullet(const XMFLOAT3& xmf3Position, XMFLOAT3& xmf3Direction)
 {
 	CBullet* pBullet = new CBullet();
-	pBullet->AddRef(); 
+	pBullet->AddRef();
 
 	pBullet->SetMesh(0, m_pBulletMesh);
 	pBullet->SetMaterial(0, m_pBulletMaterial);
@@ -953,7 +983,7 @@ void CScene::CheckBulletCollisions()
 				SpawnExplosion(pEnemy->GetPosition());
 				pEnemy->m_bRender = false;
 				pBullet->Kill();
-				break; 
+				break;
 			}
 		}
 	}
@@ -1055,6 +1085,7 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 {
 	if (m_pGameFramework->GetGameState() == GameState::MainMenu)
 	{
+		// ... (MainMenu rendering code remains the same)
 		if (m_pGameFramework->GetCamera()) m_pGameFramework->GetCamera()->SetViewportsAndScissorRects(pd3dCommandList);
 
 		if (m_pBackgroundObject)
@@ -1090,169 +1121,126 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 			}
 		}
 	}
-	else
+	else // InGame state
 	{
+		// Common setup
 		pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
 		ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
 		pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
-
 		pCamera->SetViewportsAndScissorRects(pd3dCommandList);
 		pCamera->UpdateShaderVariables(pd3dCommandList);
-
-		UpdateShaderVariables(pd3dCommandList);
-
+		UpdateShaderVariables(pd3dCommandList); // Updates lights
 		D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
 		pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress);
 
+		// PASS 0: Render scene normally (excluding the mirror surface itself)
 		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
-
 		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
-
 		if (m_pPlayer) m_pPlayer->Render(pd3dCommandList, pCamera);
-
 		for (int i = 0; i < m_nBillboardObjects; i++)
 		{
 			if (m_ppBillboardObjects[i]) m_ppBillboardObjects[i]->Render(pd3dCommandList, pCamera);
 		}
-
 		RenderBullets(pd3dCommandList, pCamera);
-
-		if (m_pWater)
-			m_pWater->Render(pd3dCommandList, pCamera);
+		if (m_pWater) m_pWater->Render(pd3dCommandList, pCamera);
 		RenderExplosions(pd3dCommandList, pCamera);
-				// Render In-Game UI (Enemy Count) using direct draw method
-				UpdateEnemyCountUI();
-				CUIShader* pUIShader = dynamic_cast<CUIShader*>(m_ppShaders[1]);
 
-				if (pUIShader)
+		// --- MIRROR RENDERING PASSES ---
+		if (m_pMirrorShader)
+		{
+			// PASS 1: Create Stencil Mask
+			m_pMirrorShader->PreRender(pd3dCommandList, pCamera);
 
-				{
+			// PASS 2 & 3: Setup reflection state and render reflected objects
+			m_pMirrorShader->RenderReflectedObjects(pd3dCommandList, pCamera);
 
-					// 1) Set UI root signature and pipeline state
-
-					pd3dCommandList->SetGraphicsRootSignature(pUIShader->GetGraphicsRootSignature());
-
-					pUIShader->Render(pd3dCommandList, nullptr, 0); // Sets the PSO for UI
-
-		
-
-					// 2) Bind the number texture SRV to the root signature (param 0)
-
-					if (m_pNumberTexture)
-
-					{
-
-						// We need a way to bind a specific texture to a specific root parameter.
-
-						// Assuming a function like this exists or should exist: 
-
-						// void CTexture::UpdateShaderVariable(ID3D12GraphicsCommandList* pd3dCommandList, int nRootParameterIndex, int nTextureIndex)
-
-						// As per the user's suggestion, we call it with root parameter 0 for the UI texture.
-
-						if (m_pNumberTexture->m_pd3dSrvGpuDescriptorHandles[0].ptr != 0)
-
-						{
-
-							pd3dCommandList->SetGraphicsRootDescriptorTable(0, m_pNumberTexture->m_pd3dSrvGpuDescriptorHandles[0]);
-
-						}
-
-					}
-
-		
-
-					// 3) Render only the mesh for each digit, bypassing the CMaterial/CTexture update path.
-
-					for (int i = 0; i < m_nMaxEnemyDigits; i++)
-
-					{
-
-						if (m_pEnemyCountDigits[i])
-
-						{
-
-							CMesh* pMesh = m_pEnemyCountDigits[i]->GetMesh(0);
-
-							if (pMesh)
-
-							{
-
-								pMesh->Render(pd3dCommandList, 0);
-
-							}
-
-						}
-
-					}
-
-				}
-
-			}
-
+			// PASS 4 & 5: Restore state and render mirror surface
+			m_pMirrorShader->PostRender(pd3dCommandList, pCamera);
 		}
 
-		
-
-		void CScene::SpawnExplosion(const XMFLOAT3& position)
-
+		// --- UI RENDERING ---
+		UpdateEnemyCountUI();
+		CUIShader* pUIShader = dynamic_cast<CUIShader*>(m_ppShaders[1]);
+		if (pUIShader)
 		{
-
-			CExplosionObject* pExplosion = m_vExplosions[m_nNextExplosion];
-
-			pExplosion->Start(position);
-
-		
-
-			m_nNextExplosion = (m_nNextExplosion + 1) % m_vExplosions.size();
-
-		}
-
-		
-
-		void CScene::AnimateExplosions(float fTimeElapsed)
-
-		{
-
-			for (auto& pExplosion : m_vExplosions)
-
+			pd3dCommandList->SetGraphicsRootSignature(pUIShader->GetGraphicsRootSignature());
+			pUIShader->Render(pd3dCommandList, nullptr, 0);
+			if (m_pNumberTexture && m_pNumberTexture->m_pd3dSrvGpuDescriptorHandles[0].ptr != 0)
 			{
-
-				if (pExplosion->IsAlive())
-
-				{
-
-					pExplosion->Animate(fTimeElapsed, nullptr);
-
-					pExplosion->UpdateTransform(nullptr);
-
-				}
-
+				pd3dCommandList->SetGraphicsRootDescriptorTable(0, m_pNumberTexture->m_pd3dSrvGpuDescriptorHandles[0]);
 			}
-
+			for (int i = 0; i < m_nMaxEnemyDigits; i++)
+			{
+				if (m_pEnemyCountDigits[i])
+				{
+					CMesh* pMesh = m_pEnemyCountDigits[i]->GetMesh(0);
+					if (pMesh) pMesh->Render(pd3dCommandList, 0);
+				}
+			}
 		}
+	}
+}
 
-		
 
-		void CScene::RenderExplosions(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
+
+void CScene::SpawnExplosion(const XMFLOAT3& position)
+
+{
+
+	CExplosionObject* pExplosion = m_vExplosions[m_nNextExplosion];
+
+	pExplosion->Start(position);
+
+
+
+	m_nNextExplosion = (m_nNextExplosion + 1) % m_vExplosions.size();
+
+}
+
+
+
+void CScene::AnimateExplosions(float fTimeElapsed)
+
+{
+
+	for (auto& pExplosion : m_vExplosions)
+
+	{
+
+		if (pExplosion->IsAlive())
 
 		{
 
-			for (auto& pExplosion : m_vExplosions)
+			pExplosion->Animate(fTimeElapsed, nullptr);
 
-			{
-
-				if (pExplosion && pExplosion->m_bRender)
-
-				{
-
-					pExplosion->Render(pd3dCommandList, pCamera);
-
-				}
-
-			}
+			pExplosion->UpdateTransform(nullptr);
 
 		}
 
-		
+	}
+
+}
+
+
+
+void CScene::RenderExplosions(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
+
+{
+
+	for (auto& pExplosion : m_vExplosions)
+
+	{
+
+		if (pExplosion && pExplosion->m_bRender)
+
+		{
+
+			pExplosion->Render(pd3dCommandList, pCamera);
+
+		}
+
+	}
+
+}
+

@@ -35,6 +35,9 @@ public:
 	void AddRef() { m_nReferences++; }
 	void Release() { if (--m_nReferences <= 0) delete this; }
 
+	XMFLOAT3						*m_pxmf3Positions = NULL;
+	int								m_nVertices = 0;
+
 protected:
 	char							m_pstrMeshName[256] = { 0 };
 
@@ -46,11 +49,8 @@ protected:
 	D3D12_PRIMITIVE_TOPOLOGY		m_d3dPrimitiveTopology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	UINT							m_nSlot = 0;
 	UINT							m_nOffset = 0;
-
 protected:
-	int								m_nVertices = 0;
 
-	XMFLOAT3						*m_pxmf3Positions = NULL;
 
 	ID3D12Resource					*m_pd3dPositionBuffer = NULL;
 	ID3D12Resource					*m_pd3dPositionUploadBuffer = NULL;

@@ -152,7 +152,6 @@ VS_STANDARD_OUTPUT VSStandard(VS_STANDARD_INPUT input)
 
 float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
 {
-
 	float4 cAlbedoColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	float4 cSpecularColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	float4 cNormalColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -176,6 +175,11 @@ float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
         cColor = lerp(cColor, cIllumination, 0.5f);
     }
     return cColor;
+}
+
+float4 PSStandardReflectionTest(VS_STANDARD_OUTPUT input) : SV_Target
+{
+    return float4(1, 0, 0, 1);
 }
 
 float4 PSStandardPlayer(VS_STANDARD_OUTPUT input) : SV_TARGET
@@ -536,4 +540,11 @@ float4 PS_Explosion(GS_PS_INPUT input) : SV_TARGET
     clip(color.a - 0.01f); 
     
     return color;
+}
+
+float4 PSMirror(VS_STANDARD_OUTPUT input) : SV_TARGET
+{
+	float4 cColor = gMaterial.m_cAmbient;
+	cColor.a = gMaterial.m_cAmbient.a;
+	return cColor;
 }

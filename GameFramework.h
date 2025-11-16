@@ -46,6 +46,9 @@ public:
 	GameState GetGameState() { return m_GameState; }
 	void SetGameState(GameState gameState) { m_GameState = gameState; }
 	CPlayer* GetPlayer() { return m_pPlayer; }
+
+	D3D12_CPU_DESCRIPTOR_HANDLE GetDsvCPUDescriptorHandle() { return m_pd3dDsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(); }
+
 public:
 	CCamera* GetCamera() { return m_pCamera; }
 

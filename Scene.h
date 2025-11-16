@@ -81,9 +81,17 @@ public:
 };
 
 class CGameFramework;
+class CMirrorShader;
+
+#include "Mesh.h"
+#include "MirrorObject.h"
+
+extern bool g_bEnableMirrorReflection; // Add this
 
 class CScene
 {
+	friend class CMirrorShader;
+
 public:
     CScene(CGameFramework *pGameFramework);
     ~CScene();
@@ -163,7 +171,7 @@ protected:
 	void AnimateExplosions(float fTimeElapsed);
 	void RenderExplosions(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera);
 
-	protected:
+protected:
 	ID3D12RootSignature*					m_pd3dGraphicsRootSignature = NULL;
 
 	int									m_nGameObjects = 0;
@@ -197,6 +205,11 @@ protected:
 
 	ID3D12Resource*						m_pd3dcbWaterAnimation = NULL;
 	VS_CB_WATER_ANIMATION*				m_pcbMappedWaterAnimation = NULL;
+
+public:
+	CMirrorShader*						m_pMirrorShader = NULL;
+	CGameObject*						m_pMirrorObject = NULL;
+	CGameObject*						m_pMirrorBackObject = NULL;
 
 public:
 	static CDescriptorHeap*				m_pDescriptorHeap;

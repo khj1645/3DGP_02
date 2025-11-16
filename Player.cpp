@@ -248,6 +248,51 @@ void CPlayer::Render(ID3D12GraphicsCommandList *pd3dCommandList, CCamera *pCamer
 	CGameObject::Render(pd3dCommandList, pCamera);
 }
 
+void CPlayer::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection)
+{
+	if (!m_bRender) return;
+
+	OnPrepareRender(); // 플레이어의 월드 행렬을 업데이트
+
+	XMMATRIX mtxWorld = XMLoadFloat4x4(&m_xmf4x4World) * xmmtxReflection;
+	XMFLOAT4X4 xmf4x4World;
+	XMStoreFloat4x4(&xmf4x4World, mtxWorld);
+
+	if (pCamera) UpdateShaderVariable(pd3dCommandList, &xmf4x4World);
+
+	// ★ PlayerShader는 PSO[2]를 반사용으로 사용한다고 가정 (사용자 제안)
+	if (m_pShader) m_pShader->OnPrepareRender(pd3dCommandList, 2);
+
+	if (m_nMaterials > 0)
+	{
+		for (int i = 0; i < m_nMaterials; i++)
+		{
+			if (m_ppMaterials[i])
+			{
+				m_ppMaterials[i]->UpdateShaderVariables(pd3dCommandList);
+			}
+
+			if (m_nMeshes == 1)
+			{
+				if (m_ppMeshes[0]) m_ppMeshes[0]->Render(pd3dCommandList, i);
+			}
+		}
+	}
+	else
+	{
+		if (m_ppMeshes)
+		{
+			for (int i = 0; i < m_nMeshes; i++)
+			{
+				if (m_ppMeshes[i]) m_ppMeshes[i]->Render(pd3dCommandList, 0);
+			}
+		}
+	}
+
+	if (m_pSibling) m_pSibling->Render(pd3dCommandList, pCamera, xmmtxReflection);
+	if (m_pChild) m_pChild->Render(pd3dCommandList, pCamera, xmmtxReflection);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CAirplanePlayer
 

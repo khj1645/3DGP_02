@@ -7,8 +7,9 @@
 
 CBillboardShader::CBillboardShader()
 {
-    m_nPipelineStates = 1; // 하나의 PSO만 사용
+    m_nPipelineStates = 2; // 0 for Normal, 1 for Reflection
     m_ppd3dPipelineStates = new ID3D12PipelineState*[m_nPipelineStates];
+    ::ZeroMemory(m_ppd3dPipelineStates, sizeof(ID3D12PipelineState*) * m_nPipelineStates);
 }
 
 CBillboardShader::~CBillboardShader()
@@ -94,11 +95,16 @@ void CBillboardShader::CreateShader(ID3D12Device *pd3dDevice, ID3D12GraphicsComm
     m_d3dPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT; // 포인트 리스트로 설정
     m_d3dPipelineStateDesc.NumRenderTargets = 1;
     m_d3dPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-    m_d3dPipelineStateDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+    m_d3dPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     m_d3dPipelineStateDesc.SampleDesc.Count = 1;
     m_d3dPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
+    // PSO[0]: Normal Billboard
     HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void **)&m_ppd3dPipelineStates[0]);
+
+    // PSO[1]: Reflected Billboard
+    m_d3dPipelineStateDesc.DepthStencilState = CreateReflectionStencilState();
+    pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void **)&m_ppd3dPipelineStates[1]);
     
     // InputLayout에 할당된 메모리 해제
     if (m_d3dPipelineStateDesc.InputLayout.pInputElementDescs)

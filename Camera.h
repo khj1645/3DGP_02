@@ -45,6 +45,8 @@ protected:
 	ID3D12Resource					*m_pd3dcbCamera = NULL;
 	VS_CB_CAMERA_INFO				*m_pcbMappedCamera = NULL;
 
+	XMFLOAT4X4						m_xmf4x4ViewOriginal;
+
 public:
 	CCamera();
 	CCamera(CCamera *pCamera);
@@ -104,6 +106,9 @@ public:
 	virtual void Rotate(float fPitch = 0.0f, float fYaw = 0.0f, float fRoll = 0.0f) { }
 	virtual void Update(XMFLOAT3& xmf3LookAt, float fTimeElapsed) { }
 	virtual void SetLookAt(XMFLOAT3& xmf3LookAt) { }
+
+	void Reflect(XMVECTOR& xmvPlane);
+	void Restore();
 };
 
 class CSpaceShipCamera : public CCamera
