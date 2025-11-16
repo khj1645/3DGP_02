@@ -67,7 +67,16 @@ public:
 
 	void PostRender(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera);
 
+	void RenderBackDepth(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
+	{
+		if (!m_pMirrorBackObject || !m_ppd3dPipelineStates[3] || !m_pMirrorObject) return;
 
+		// Update the back object's transform to match the main mirror
+		m_pMirrorBackObject->m_xmf4x4World = m_pMirrorObject->m_xmf4x4World;
+
+		pd3dCommandList->SetPipelineState(m_ppd3dPipelineStates[3]);
+		m_pMirrorBackObject->Render(pd3dCommandList, pCamera,3);
+	}
 
 private:
 

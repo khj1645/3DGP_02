@@ -48,3 +48,8 @@ CWaterObject::CWaterObject(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* 
 CWaterObject::~CWaterObject()
 {
 }
+
+void CWaterObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection)
+{
+	CGameObject::Render(pd3dCommandList, pCamera, xmmtxReflection, 1); // Use PSO[1] for reflection
+}

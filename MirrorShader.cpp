@@ -12,20 +12,13 @@ CMirrorShader::CMirrorShader(CScene* pScene, CGameObject* pMirrorObject)
 	m_pMirrorObject = pMirrorObject;
 
 	// 필요하면 뒷면 렌더용 거울 오브젝트 생성
-	m_pMirrorBackObject = NULL;
-	if (m_pMirrorObject)
-	{
-		m_pMirrorBackObject = new CGameObject(1, 1);
-		m_pMirrorBackObject->SetMesh(0, m_pMirrorObject->GetMesh(0));
-
-		if (m_pMirrorObject->m_nMaterials > 0)
-		{
-			m_pMirrorBackObject->SetMaterial(0, m_pMirrorObject->m_ppMaterials[0]);
-		}
-
-		m_pMirrorBackObject->m_xmf4x4World = m_pMirrorObject->m_xmf4x4World;
-		m_pMirrorBackObject->m_xmf4x4Transform = m_pMirrorObject->m_xmf4x4Transform;
-	}
+	m_pMirrorBackObject = new CGameObject(1, 1);
+	m_pMirrorBackObject->SetMesh(0, pMirrorObject->GetMesh(0));
+	CMaterial* pMirrorMaterial = new CMaterial();
+	pMirrorMaterial->m_xmf4AmbientColor = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.f); // Green for debugging
+	pMirrorMaterial->SetShader(this);
+	//pMirrorMaterial->m_xmf4AlbedoColor = XMFLOAT4(0.8f, 0.8f, 0.9f, 0.3f); // Semi-transparent
+	m_pMirrorBackObject->SetMaterial(0, pMirrorMaterial);
 
 	m_pOriginalLights = nullptr;
 	m_nOriginalLights = 0;
@@ -195,11 +188,11 @@ void CMirrorShader::PreRender(ID3D12GraphicsCommandList* pd3dCommandList, CCamer
 		D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
 	// 2) 거울 뒷면을 깊이 버퍼에만 렌더 (옵션)
-	if (m_pMirrorBackObject && m_ppd3dPipelineStates[3])
-	{
-		pd3dCommandList->SetPipelineState(m_ppd3dPipelineStates[3]);
-		m_pMirrorBackObject->Render(pd3dCommandList, pCamera);
-	}
+	//if (m_pMirrorBackObject && m_ppd3dPipelineStates[3])
+	//{
+		//pd3dCommandList->SetPipelineState(m_ppd3dPipelineStates[3]);
+		//m_pMirrorBackObject->Render(pd3dCommandList, pCamera);
+	//}
 
 	// 3) 거울 앞면을 스텐실 버퍼에 렌더 (Stencil = 1)
 	pd3dCommandList->OMSetStencilRef(1);
@@ -213,7 +206,6 @@ void CMirrorShader::PreRender(ID3D12GraphicsCommandList* pd3dCommandList, CCamer
 void CMirrorShader::RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
 {
 	if (!m_pMirrorObject) return;
-
 	// 1) 거울 평면 계산
 	//	거울 메쉬의 로컬 노멀을 (0, 0, -1) 로 가정 (정면이 -Z 이라고 가정)
 	//	필요하면 이 부분은 실제 거울 메쉬 방향에 맞게 조정
@@ -258,7 +250,9 @@ void CMirrorShader::RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dComman
 	// 4) 스텐실 값 1인 영역에만 반사된 장면 렌더
 	//	실제 객체 렌더링은 각 셰이더의 "반사용 PSO"가 수행한다고 가정
 	pd3dCommandList->OMSetStencilRef(1);
-
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = m_pScene->m_pGameFramework->GetDsvCPUDescriptorHandle();
+	pd3dCommandList->ClearDepthStencilView(dsvHandle,
+		D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	// (1) SkyBox : geometry 를 반사시키지 않고, 반사된 카메라로만 렌더
 //	if (m_pScene->m_pSkyBox)
 	//{
@@ -270,7 +264,8 @@ void CMirrorShader::RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dComman
 	{
 		m_pScene->m_pTerrain->Render(pd3dCommandList, &reflectedCamera, xmmtxReflect); // 사용자 제안: xmmtxReflect 인자 추가
 	}
-
+	if(m_pScene->m_pWater)
+		m_pScene->m_pWater->Render(pd3dCommandList, &reflectedCamera,xmmtxReflect,1);
 	// (3) 일반 오브젝트들 (헬기, 건물 등)
 	if (m_pScene->m_ppShaders[0])
 	{

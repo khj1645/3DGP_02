@@ -402,24 +402,28 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 		m_vExplosions[i]->AddRef();
 	}
 
-	// Create Mirror
-	CTexturedRectMesh* pMirrorMesh = new CTexturedRectMesh(pd3dDevice, pd3dCommandList, 1000.0f, 1000.0f, 0.0f);
+	// Create Building
+	m_pBuildingObject = new CGameObject(1, 1);
+	CCubeMesh* pBuildingMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 200.0f, 400.0f, 200.0f);
+	m_pBuildingObject->SetMesh(0, pBuildingMesh);
+	CMaterial* pBuildingMaterial = new CMaterial();
+	pBuildingMaterial->m_xmf4AlbedoColor = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f); // Gray
+	pBuildingMaterial->SetShader(pObjectsShader);
+	m_pBuildingObject->SetMaterial(0, pBuildingMaterial);
+	m_pBuildingObject->SetPosition(1000.0f, 845.0f, 1450.0f);
+	m_pBuildingObject->UpdateTransform(NULL);
+
+	// Create Mirror on the building wall
+	CTexturedRectMesh* pMirrorMesh = new CTexturedRectMesh(pd3dDevice, pd3dCommandList, 80.0f, 80.0f, 0.0f);
 	m_pMirrorObject = new CGameObject(1, 1);
 	m_pMirrorObject->SetMesh(0, pMirrorMesh);
 
 	CMaterial* pMirrorMaterial = new CMaterial();
-	pMirrorMaterial->m_xmf4AmbientColor = XMFLOAT4(0.0f, 1.0f, 0.0f, 0.5f); // Green for debugging
+	pMirrorMaterial->m_xmf4AmbientColor = XMFLOAT4(0.7f, 0.8f, 0.9f, 0.5f); // Green for debugging
 	pMirrorMaterial->m_xmf4AlbedoColor = XMFLOAT4(0.8f, 0.8f, 0.9f, 0.3f); // Semi-transparent
 	m_pMirrorObject->SetMaterial(0, pMirrorMaterial);
-	// m_pMirrorObject->SetPosition(920.0f, 745.0f, 1300.0f); // Original position
-	// m_pMirrorObject->Rotate(0.0f, 0.0f, 0.0f); // Original rotation
-
-	// Temporarily move mirror in front of player for debugging
-	XMFLOAT3 playerLook = XMFLOAT3(0.0f, 0.0f, 1.0f); // Assuming player initially looks along +Z
-
-	XMFLOAT3 mirrorDebugPos = Vector3::Add(playerInitialPos, Vector3::ScalarProduct(playerLook, 50.0f));
-	m_pMirrorObject->SetPosition(mirrorDebugPos.x, mirrorDebugPos.y, mirrorDebugPos.z);
-	m_pMirrorObject->Rotate(0.0f, 180.0f, 0.0f); // Rotate to face the player
+	m_pMirrorObject->SetPosition(1000.0f, 745.0f, 1349.9f); // On the Z- face of the building
+	m_pMirrorObject->Rotate(0.0f, 180.0f, 0.0f); 
 	m_pMirrorObject->UpdateTransform(NULL);
 
 	m_pMirrorShader = new CMirrorShader(this, m_pMirrorObject);
@@ -433,6 +437,7 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 
 void CScene::ReleaseObjects()
 {
+	if (m_pBuildingObject) m_pBuildingObject->Release();
 	if (m_pMirrorObject) m_pMirrorObject->Release();
 
 	if (m_pStartButtonObject) m_pStartButtonObject->Release();
@@ -1133,9 +1138,11 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 		D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
 		pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress);
 
+		if (m_pMirrorShader)  
+			m_pMirrorShader->RenderBackDepth(pd3dCommandList, pCamera);
 		// PASS 0: Render scene normally (excluding the mirror surface itself)
-		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
+		if (m_pBuildingObject) m_pBuildingObject->Render(pd3dCommandList, pCamera);
 		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
 		if (m_pPlayer) m_pPlayer->Render(pd3dCommandList, pCamera);
 		for (int i = 0; i < m_nBillboardObjects; i++)
@@ -1143,6 +1150,7 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 			if (m_ppBillboardObjects[i]) m_ppBillboardObjects[i]->Render(pd3dCommandList, pCamera);
 		}
 		RenderBullets(pd3dCommandList, pCamera);
+		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
 		if (m_pWater) m_pWater->Render(pd3dCommandList, pCamera);
 		RenderExplosions(pd3dCommandList, pCamera);
 
