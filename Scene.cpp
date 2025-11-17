@@ -1138,9 +1138,10 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 		D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
 		pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress);
 
-		if (m_pMirrorShader)  
-			m_pMirrorShader->RenderBackDepth(pd3dCommandList, pCamera);
+		//if (m_pMirrorShader)  
+		//	m_pMirrorShader->RenderBackDepth(pd3dCommandList, pCamera);
 		// PASS 0: Render scene normally (excluding the mirror surface itself)
+		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
 		if (m_pBuildingObject) m_pBuildingObject->Render(pd3dCommandList, pCamera);
 		if (m_ppShaders[0]) m_ppShaders[0]->Render(pd3dCommandList, pCamera);
@@ -1150,7 +1151,6 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 			if (m_ppBillboardObjects[i]) m_ppBillboardObjects[i]->Render(pd3dCommandList, pCamera);
 		}
 		RenderBullets(pd3dCommandList, pCamera);
-		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
 		if (m_pWater) m_pWater->Render(pd3dCommandList, pCamera);
 		RenderExplosions(pd3dCommandList, pCamera);
 
@@ -1249,6 +1249,27 @@ void CScene::RenderExplosions(ID3D12GraphicsCommandList* pd3dCommandList, CCamer
 		}
 
 	}
+
+}
+
+void CScene::RenderExplosionsReflect(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection)
+
+{
+
+	for (auto& pExplosion : m_vExplosions)
+
+	{
+
+		if (pExplosion && pExplosion->m_bRender)
+
+		{
+
+			pExplosion->Render(pd3dCommandList, pCamera, xmmtxReflection, 1);
+
+		}
+
+	}
+	
 
 }
 

@@ -323,9 +323,15 @@ public:
 
 	void Start(const XMFLOAT3& xmf3Position);
 	virtual void Animate(float fTimeElapsed, XMFLOAT4X4* pxmf4x4Parent = nullptr);
-
+	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera = NULL)
+	{
+		CGameObject::Render(pd3dCommandList, pCamera);
+	}
+	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection, int nPipelineState)
+	{
+		CGameObject::Render(pd3dCommandList, pCamera, xmmtxReflection, 1);
+	}
 	bool IsAlive() const { return m_bIsAlive; }
-
 protected:
 	bool m_bIsAlive = false;
 	float m_fAge = 0.0f;
@@ -390,6 +396,7 @@ public:
 	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera = NULL);
 	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, int nPipelineState);
 	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection);
+	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection, int nPipelineState);
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

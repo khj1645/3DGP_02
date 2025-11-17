@@ -246,7 +246,7 @@ void CMirrorShader::RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dComman
 	ReflectLights(pd3dCommandList, xmvMirrorPlane);
 	D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pScene->m_pd3dcbLights->GetGPUVirtualAddress();
 	pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress);
-
+	// 카메라를 따라다니는 20x20x20크기의 큐브가 스카이박슨데, 맨 처음에 그리기만 하고, 깊이 테스트는 안 해서 꽉 차는 것처럼 보이는 건데, 
 	// 4) 스텐실 값 1인 영역에만 반사된 장면 렌더
 	//	실제 객체 렌더링은 각 셰이더의 "반사용 PSO"가 수행한다고 가정
 	pd3dCommandList->OMSetStencilRef(1);
@@ -254,11 +254,11 @@ void CMirrorShader::RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dComman
 	pd3dCommandList->ClearDepthStencilView(dsvHandle,
 		D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	// (1) SkyBox : geometry 를 반사시키지 않고, 반사된 카메라로만 렌더
-//	if (m_pScene->m_pSkyBox)
-	//{
-	//	m_pScene->m_pSkyBox->Render(pd3dCommandList, &reflectedCamera, xmmtxReflect); // 사용자 제안: xmmtxReflect 인자 추가
-	//}
-
+	if (m_pScene->m_pSkyBox)
+	{
+		m_pScene->m_pSkyBox->Render(pd3dCommandList, pCamera, xmmtxReflect,1); // 사용자 제안: xmmtxReflect 인자 추가
+	}
+	
 	// (2) Terrain : 마찬가지로 월드는 그대로, 카메라만 반사
 	if (m_pScene->m_pTerrain)
 	{
@@ -279,15 +279,10 @@ void CMirrorShader::RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dComman
 		m_pScene->m_pPlayer->Render(pd3dCommandList, &reflectedCamera, xmmtxReflect);
 	}
 
-	// (5) 빌보드(폭발, 이펙트 등)
-	for (int i = 0; i < m_pScene->m_nBillboardObjects; i++)
-	{
-		if (m_pScene->m_ppBillboardObjects[i])
-		{
-			m_pScene->m_ppBillboardObjects[i]->Render(pd3dCommandList, &reflectedCamera, xmmtxReflect);
-		}
-	}
 
+	if (m_pScene) {
+		m_pScene->RenderExplosionsReflect(pd3dCommandList, &reflectedCamera, xmmtxReflect);
+	}
 	// reflectedCamera 는 지역 변수이므로 여기서 자동으로 소멸됨
 }
 
