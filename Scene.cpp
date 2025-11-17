@@ -362,11 +362,11 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	}
 
 	// Bullet Resources
-	m_pBulletMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 5.0f, 4.0f, 5.0f);
+	m_pBulletMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 3.0f, 2.0f, 3.0f);
 	m_pBulletMesh->AddRef();
 	m_pBulletMaterial = new CMaterial();
 	m_pBulletMaterial->AddRef();
-	m_pBulletMaterial->m_xmf4AlbedoColor = XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f); //Yellow
+	m_pBulletMaterial->m_xmf4AlbedoColor = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f); 
 	m_pBulletMaterial->SetShader(pObjectsShader); //Reuse the standard object shader
 
 	// 1. Explosion Resources
@@ -1075,16 +1075,7 @@ void CScene::UpdateEnemyCountUI()
 	if (m_pEnemyCountDigits[2]) SetDigitUV(m_pEnemyCountDigits[2], d0);
 }
 
-void CScene::RenderBullets(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
-{
-	for (auto* pBullet : m_vBullets)
-	{
-		if (pBullet && pBullet->IsAlive())
-		{
-			pBullet->Render(pd3dCommandList, pCamera);
-		}
-	}
-}
+
 
 void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
 {
@@ -1273,3 +1264,24 @@ void CScene::RenderExplosionsReflect(ID3D12GraphicsCommandList* pd3dCommandList,
 
 }
 
+void CScene::RenderBullets(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
+{
+	for (auto* pBullet : m_vBullets)
+	{
+		if (pBullet && pBullet->IsAlive())
+		{
+			pBullet->Render(pd3dCommandList, pCamera);
+		}
+	}
+}
+
+void CScene::RenderBulletssReflect(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection)
+{
+	for (auto* pBullet : m_vBullets)
+	{
+		if (pBullet && pBullet->IsAlive())
+		{
+			pBullet->Render(pd3dCommandList, pCamera, xmmtxReflection,1);
+		}
+	}
+}

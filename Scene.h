@@ -167,6 +167,7 @@ protected:
 public:
 	void SpawnExplosion(const XMFLOAT3& position);
 	void RenderExplosionsReflect(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection);
+	void RenderBulletssReflect(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection);
 protected:
 	void AnimateExplosions(float fTimeElapsed);
 	void RenderExplosions(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera);

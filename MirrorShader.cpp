@@ -279,7 +279,9 @@ void CMirrorShader::RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dComman
 		m_pScene->m_pPlayer->Render(pd3dCommandList, &reflectedCamera, xmmtxReflect);
 	}
 
-
+	if (m_pScene) {
+		m_pScene->RenderBulletssReflect(pd3dCommandList, &reflectedCamera, xmmtxReflect);
+	}
 	if (m_pScene) {
 		m_pScene->RenderExplosionsReflect(pd3dCommandList, &reflectedCamera, xmmtxReflect);
 	}
