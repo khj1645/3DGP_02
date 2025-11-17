@@ -340,7 +340,7 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	m_ppShaders[2] = m_pBillboardShader;
 
 	m_pBillboardTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
-	m_pBillboardTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Model/Textures/Tree02.dds", RESOURCE_TEXTURE2D, 0);
+	m_pBillboardTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Model/Textures/Flower02.dds", RESOURCE_TEXTURE2D, 0);
 	CScene::CreateShaderResourceView(pd3dDevice, m_pBillboardTexture, 0, 12);
 
 	int nBillboardsToGenerate = 100;
@@ -353,7 +353,7 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	{
 		float x = playerInitialPos.x + (((float)rand() / RAND_MAX) * 2.0f - 1.0f) * generationRadius;
 		float z = playerInitialPos.z + (((float)rand() / RAND_MAX) * 2.0f - 1.0f) * generationRadius;
-		float y = m_pTerrain->GetHeight(x, z) + 1.0f;
+		float y = m_pTerrain->GetHeight(x, z) + 8.0f;
 
 		XMFLOAT3 billboardPosition = XMFLOAT3(x, y, z);
 

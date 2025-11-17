@@ -394,12 +394,13 @@ GS_BILLBOARD_INPUT VSBillboard(VS_BILLBOARD_INPUT input)
 void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILLBOARD_INPUT> outputStream)
 {
     // 빌보드의 크기 (가로, 세로)
-	float2 size = float2(4.0f, 4.0f); // 이 값은 C++에서 상수 버퍼로 넘겨주는 것이 더 유연합니다.
+	float2 size = float2(8.0f, 8.0f); // 이 값은 C++에서 상수 버퍼로 넘겨주는 것이 더 유연합니다.
 
     // 카메라의 Up 벡터와 Right 벡터를 뷰 역행렬에서 추출
     // gmtxInverseView는 cbCameraInfo에 정의되어 있습니다.
-	float3 up = normalize(gmtxInverseView._21_22_23);
-	float3 right = normalize(gmtxInverseView._11_12_13);
+	// Y축 고정 빌보드 (Cylindrical Billboard)
+	float3 up = float3(0.0f, 1.0f, 0.0f);
+	float3 right = normalize(float3(gmtxInverseView._11, 0.0f, gmtxInverseView._13));
 
     // 사각형의 네 꼭짓점 위치 계산
 	float3 positions[4];

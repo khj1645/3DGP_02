@@ -256,7 +256,7 @@ void CMirrorShader::RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dComman
 	// (1) SkyBox : geometry 를 반사시키지 않고, 반사된 카메라로만 렌더
 	if (m_pScene->m_pSkyBox)
 	{
-		m_pScene->m_pSkyBox->Render(pd3dCommandList, pCamera, xmmtxReflect,1); // 사용자 제안: xmmtxReflect 인자 추가
+		m_pScene->m_pSkyBox->Render(pd3dCommandList, &reflectedCamera, xmmtxReflect,1); // 사용자 제안: xmmtxReflect 인자 추가
 	}
 	
 	// (2) Terrain : 마찬가지로 월드는 그대로, 카메라만 반사
@@ -278,7 +278,13 @@ void CMirrorShader::RenderReflectedObjects(ID3D12GraphicsCommandList* pd3dComman
 	{
 		m_pScene->m_pPlayer->Render(pd3dCommandList, &reflectedCamera, xmmtxReflect);
 	}
-
+	for (int i = 0; i < m_pScene->m_nBillboardObjects; i++)
+	{
+		if (m_pScene->m_ppBillboardObjects[i])
+		{
+			m_pScene->m_ppBillboardObjects[i]->Render(pd3dCommandList, &reflectedCamera, xmmtxReflect, 1);
+		}
+	}
 	if (m_pScene) {
 		m_pScene->RenderBulletssReflect(pd3dCommandList, &reflectedCamera, xmmtxReflect);
 	}

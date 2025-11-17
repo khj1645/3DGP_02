@@ -326,9 +326,29 @@ void CSkyBoxShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommand
 
 	HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[0]);
 	// PSO[1]: Reflected Skybox (Cull Back)
-	m_d3dPipelineStateDesc.RasterizerState.FrontCounterClockwise = TRUE;
-	m_d3dPipelineStateDesc.DepthStencilState = CreateReflectionStencilState();
-	hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[1]);
+	{
+		D3D12_DEPTH_STENCIL_DESC ds = {};
+		ds.DepthEnable = FALSE;                          
+		ds.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+		ds.DepthFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+
+		ds.StencilEnable = TRUE;                        
+		ds.StencilReadMask = 0xff;
+		ds.StencilWriteMask = 0x00;                    
+		ds.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL; 
+		ds.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+		ds.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+		ds.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+		ds.BackFace = ds.FrontFace;
+
+		m_d3dPipelineStateDesc.DepthStencilState = ds;
+
+		D3D12_RASTERIZER_DESC rs = CreateRasterizerState();
+		rs.CullMode = D3D12_CULL_MODE_BACK;             // 반사 카메라 기준 winding 보정용
+		m_d3dPipelineStateDesc.RasterizerState = rs;
+
+		pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[1]));
+	}
 
 	if (m_pd3dVertexShaderBlob) m_pd3dVertexShaderBlob->Release();
 	if (m_pd3dPixelShaderBlob) m_pd3dPixelShaderBlob->Release();
