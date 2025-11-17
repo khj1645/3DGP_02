@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "Player.h"
 #include "Shader.h"
+#include "Scene.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CPlayer
@@ -143,8 +144,10 @@ void CPlayer::Rotate(float x, float y, float z)
 	m_xmf3Up = Vector3::CrossProduct(m_xmf3Look, m_xmf3Right, true);
 }
 
-void CPlayer::Update(float fTimeElapsed)
+void CPlayer::Update(float fTimeElapsed, CScene *pScene)
 {
+	OnPrepareRender(); // Update transform and AABB first
+
 	m_xmf3Velocity = Vector3::Add(m_xmf3Velocity, m_xmf3Gravity);
 	float fLength = sqrtf(m_xmf3Velocity.x * m_xmf3Velocity.x + m_xmf3Velocity.z * m_xmf3Velocity.z);
 	float fMaxVelocityXZ = m_fMaxVelocityXZ;
@@ -158,6 +161,19 @@ void CPlayer::Update(float fTimeElapsed)
 	if (fLength > m_fMaxVelocityY) m_xmf3Velocity.y *= (fMaxVelocityY / fLength);
 
 	XMFLOAT3 xmf3Velocity = Vector3::ScalarProduct(m_xmf3Velocity, fTimeElapsed, false);
+
+	if (pScene && pScene->m_pBuildingObject)
+	{
+		BoundingBox nextAABB = GetWorldAABB();
+		nextAABB.Center = Vector3::Add(XMFLOAT3(nextAABB.Center.x, nextAABB.Center.y, nextAABB.Center.z), xmf3Velocity);
+
+		if (nextAABB.Intersects(pScene->m_pBuildingObject->GetWorldAABB()))
+		{
+			m_xmf3Velocity = XMFLOAT3(0.0f, 0.0f, 0.0f);
+			xmf3Velocity = XMFLOAT3(0.0f, 0.0f, 0.0f);
+		}
+	}
+
 	Move(xmf3Velocity, false);
 
 	if (m_pPlayerUpdatedContext) OnPlayerUpdateCallback(fTimeElapsed);
@@ -306,6 +322,8 @@ CAirplanePlayer::CAirplanePlayer(ID3D12Device *pd3dDevice, ID3D12GraphicsCommand
 	CGameObject *pGameObject = CGameObject::LoadGeometryFromFile(pd3dDevice, pd3dCommandList, pd3dGraphicsRootSignature, "Model/Mi24.bin", m_pShader);
 	SetChild(pGameObject);
 
+	SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
+
 	PrepareAnimate();
 
 	CreateShaderVariables(pd3dDevice, pd3dCommandList);
@@ -390,7 +408,7 @@ CCamera *CAirplanePlayer::ChangeCamera(DWORD nNewCameraMode, float fTimeElapsed)
 		default:
 			break;
 	}
-	Update(fTimeElapsed);
+	Update(fTimeElapsed, NULL);
 
 	return(m_pCamera);
 }

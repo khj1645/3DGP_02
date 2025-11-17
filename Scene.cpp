@@ -255,7 +255,7 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	m_pBackgroundObject->SetMaterial(0, pBackgroundMaterial);
 
 	m_pStartButtonObject = new CGameObject(1, 1);
-	CUIRectMesh* pStartButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.25f, 0.35f, 0.2f, 0.2f);
+	CUIRectMesh* pStartButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.05f, 0.35f, 0.2f, 0.2f);
 	m_pStartButtonObject->SetMesh(0, pStartButtonMesh);
 
 	m_pStartButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
@@ -269,7 +269,7 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	m_pStartButtonObject->SetMaterial(0, pStartButtonMaterial);
 
 	m_pStartButtonHoverObject = new CGameObject(1, 1);
-	CUIRectMesh* pStartButtonHoverMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.25f - (0.2f * 0.05f), 0.35f - (0.2f * 0.05f), 0.2f * 1.1f, 0.2f * 1.1f);
+	CUIRectMesh* pStartButtonHoverMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.05f - (0.2f * 0.05f), 0.35f - (0.2f * 0.05f), 0.2f * 1.1f, 0.2f * 1.1f);
 	m_pStartButtonHoverObject->SetMesh(0, pStartButtonHoverMesh);
 	CMaterial* pStartButtonHoverMaterial = new CMaterial();
 	pStartButtonHoverMaterial->SetTexture(m_pStartButtonDefaultTexture);
@@ -277,7 +277,7 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	m_pStartButtonHoverObject->SetMaterial(0, pStartButtonHoverMaterial);
 
 	m_pExitButtonObject = new CGameObject(1, 1);
-	CUIRectMesh* pExitButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.55f, 0.35f, 0.2f, 0.2f);
+	CUIRectMesh* pExitButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.75f, 0.35f, 0.2f, 0.2f);
 	m_pExitButtonObject->SetMesh(0, pExitButtonMesh);
 
 	m_pExitButtonDefaultTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
@@ -291,7 +291,7 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	m_pExitButtonObject->SetMaterial(0, pExitButtonMaterial);
 
 	m_pExitButtonHoverObject = new CGameObject(1, 1);
-	CUIRectMesh* pExitButtonHoverMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.55f - (0.2f * 0.05f), 0.35f - (0.2f * 0.05f), 0.2f * 1.1f, 0.2f * 1.1f);
+	CUIRectMesh* pExitButtonHoverMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.75f - (0.2f * 0.05f), 0.35f - (0.2f * 0.05f), 0.2f * 1.1f, 0.2f * 1.1f);
 	m_pExitButtonHoverObject->SetMesh(0, pExitButtonHoverMesh);
 	CMaterial* pExitButtonHoverMaterial = new CMaterial();
 	pExitButtonHoverMaterial->SetTexture(m_pExitButtonDefaultTexture);
@@ -406,11 +406,15 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	m_pBuildingObject = new CGameObject(1, 1);
 	CCubeMesh* pBuildingMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 200.0f, 400.0f, 200.0f);
 	m_pBuildingObject->SetMesh(0, pBuildingMesh);
+	m_pBuildingObject->SetLocalAABB(XMFLOAT3(-100.0f, -200.0f, -100.0f), XMFLOAT3(100.0f, 200.0f, 100.0f));
 	CMaterial* pBuildingMaterial = new CMaterial();
 	pBuildingMaterial->m_xmf4AlbedoColor = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f); // Gray
 	pBuildingMaterial->SetShader(pObjectsShader);
 	m_pBuildingObject->SetMaterial(0, pBuildingMaterial);
-	m_pBuildingObject->SetPosition(1000.0f, 845.0f, 1450.0f);
+
+	float fHeight = m_pTerrain->GetHeight(1000.0f, 1450.0f);
+	m_pBuildingObject->SetPosition(1000.0f, fHeight + 200.0f, 1450.0f);
+
 	m_pBuildingObject->UpdateTransform(NULL);
 
 	// Create Mirror on the building wall

@@ -168,6 +168,7 @@ public:
 	void SpawnExplosion(const XMFLOAT3& position);
 	void RenderExplosionsReflect(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection);
 	void RenderBulletssReflect(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection);
+	CGameObject* m_pBuildingObject = NULL;
 protected:
 	void AnimateExplosions(float fTimeElapsed);
 	void RenderExplosions(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera);
@@ -189,7 +190,7 @@ protected:
 
 	CSkyBox								*m_pSkyBox = NULL;
 	CHeightMapTerrain*					m_pTerrain = NULL;
-	CGameObject*						m_pBuildingObject = NULL;
+
 
 	CWaterObject*						m_pWater = NULL; // 물 객체
 	XMFLOAT4X4							m_xmf4x4WaterAnimation; // 물 텍스처 애니메이션 매트릭스

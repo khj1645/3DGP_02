@@ -10,6 +10,8 @@
 #include "Object.h"
 #include "Camera.h"
 
+class CScene;
+
 class CPlayer : public CGameObject
 {
 protected:
@@ -64,7 +66,7 @@ public:
 	void Move(float fxOffset = 0.0f, float fyOffset = 0.0f, float fzOffset = 0.0f);
 	void Rotate(float x, float y, float z);
 
-	void Update(float fTimeElapsed);
+	void Update(float fTimeElapsed, CScene *pScene);
 
 	virtual void OnPlayerUpdateCallback(float fTimeElapsed) { }
 	void SetPlayerUpdatedContext(LPVOID pContext) { m_pPlayerUpdatedContext = pContext; }
