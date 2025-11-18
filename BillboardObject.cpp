@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "BillboardObject.h"
 #include "PointMesh.h" // For CPointMesh
 
@@ -29,10 +29,21 @@ CBillboardObject::~CBillboardObject()
 {
 }
 
+void CBillboardObject::Animate(float fTimeElapsed)
+{
+    if (!m_bIsActive) return;
+
+    m_fElapsedTime += fTimeElapsed;
+    if (m_fElapsedTime > m_fDuration)
+    {
+        m_bIsActive = false;
+    }
+}
+
 void CBillboardObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera)
 {
+    if (!m_bIsActive) return;
+
     XMFLOAT3 pos = GetPosition();
-
-
     CGameObject::Render(pd3dCommandList, pCamera);
 }

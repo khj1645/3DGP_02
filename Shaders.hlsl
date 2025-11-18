@@ -73,13 +73,13 @@ VS_WATER_OUTPUT VSTerrainWater(VS_WATER_INPUT input)
 {
     VS_WATER_OUTPUT output;
 
-    // Transform position from model space to world space
+    
     float4 worldPos = mul(float4(input.position, 1.0f), gmtxGameObject);
     
-    // Transform position from world space to view space, then to projection space
+   
     output.position = mul(mul(worldPos, gmtxView), gmtxProjection);
     
-    // Pass UVs directly to pixel shader
+    
     output.uv = input.uv;
 
     return output;
@@ -89,17 +89,17 @@ float4 PSTerrainWater(VS_WATER_OUTPUT input) : SV_TARGET
 {
 	float2 uv = input.uv;
 
-	// 텍스처 애니메이션 매트릭스 적용
+	
 	uv = mul(float3(input.uv, 1.0f), (float3x3)gf4x4TextureAnimation).xy;
 
-	// 텍스처 샘플링 (Detail 텍스처는 20배 타일링)
+	
 	float4 cBaseTexColor = gtxtWaterBaseTexture.SampleLevel(gssWrap, uv, 0);
 	float4 cDetail0TexColor = gtxtWaterDetail0Texture.SampleLevel(gssWrap, uv * 20.0f, 0);
 	float4 cDetail1TexColor = gtxtWaterDetail1Texture.SampleLevel(gssWrap, uv * 20.0f, 0);
 
-	// 최종 색상 조합
+	
 	float4 cColor = lerp(cBaseTexColor * cDetail0TexColor, cDetail1TexColor.r * 0.5f, 0.35f);
-	//cColor.a = 1.0f;
+	
 	return(cColor);
 }
 
@@ -152,19 +152,18 @@ VS_STANDARD_OUTPUT VSStandard(VS_STANDARD_INPUT input)
 
 float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
 {
-	float4 cAlbedoColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
-	float4 cSpecularColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	float4 cAlbedoColor = gMaterial.m_cDiffuse; // FIX: Use material color by default
+	float4 cSpecularColor = gMaterial.m_cSpecular;
 	float4 cNormalColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
 	float4 cMetallicColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
-	float4 cEmissionColor = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	float4 cEmissionColor = gMaterial.m_cEmissive;
 
-	if (gnTexturesMask & MATERIAL_ALBEDO_MAP) cAlbedoColor = gtxtAlbedoTexture.Sample(gssWrap, input.uv);
-	if (gnTexturesMask & MATERIAL_SPECULAR_MAP) cSpecularColor = gtxtSpecularTexture.Sample(gssWrap, input.uv);
+	if (gnTexturesMask & MATERIAL_ALBEDO_MAP) cAlbedoColor *= gtxtAlbedoTexture.Sample(gssWrap, input.uv); // FIX: Multiply, don't replace
+	if (gnTexturesMask & MATERIAL_SPECULAR_MAP) cSpecularColor *= gtxtSpecularTexture.Sample(gssWrap, input.uv);
 	if (gnTexturesMask & MATERIAL_NORMAL_MAP) cNormalColor = gtxtNormalTexture.Sample(gssWrap, input.uv);
 	if (gnTexturesMask & MATERIAL_METALLIC_MAP) cMetallicColor = gtxtMetallicTexture.Sample(gssWrap, input.uv);
-	if (gnTexturesMask & MATERIAL_EMISSION_MAP) cEmissionColor = gtxtEmissionTexture.Sample(gssWrap, input.uv);
+	if (gnTexturesMask & MATERIAL_EMISSION_MAP) cEmissionColor *= gtxtEmissionTexture.Sample(gssWrap, input.uv);
 
-	float4 cIllumination = float4(1.0f, 1.0f, 1.0f, 1.0f);
 	float4 cColor = cAlbedoColor + cSpecularColor + cEmissionColor;
 	if (gnTexturesMask & MATERIAL_NORMAL_MAP)
     {
@@ -174,6 +173,13 @@ float4 PSStandard(VS_STANDARD_OUTPUT input) : SV_TARGET
         float4 cIllumination = Lighting(input.positionW, normalW);
         cColor = lerp(cColor, cIllumination, 0.5f);
     }
+	else // FIX: Add lighting path for non-normal-mapped objects
+	{
+		float3 normalW = normalize(input.normalW);
+		float4 cIllumination = Lighting(input.positionW, normalW);
+		// Apply lighting using the same weird lerp to maintain consistency
+		cColor = lerp(cColor, cIllumination, 0.5f);
+	}
     return cColor;
 }
 
@@ -333,8 +339,6 @@ VS_SPRITE_TEXTURED_OUTPUT VS_UI(VS_SPRITE_TEXTURED_INPUT input)
 {
 	VS_SPRITE_TEXTURED_OUTPUT output;
 
-    // For UI, we assume the input position is already in NDC.
-    // The C++ code will provide an identity matrix for the world matrix.
 	output.position = float4(input.position, 1.0f);
 	output.uv = input.uv;
 
@@ -377,9 +381,7 @@ struct PS_BILLBOARD_INPUT
 	float2 uv : TEXCOORD;       // 텍스처 UV 좌표
 };
 
-//-------------------------------------------------------------------------------------------------------------------------------------------------
-// Vertex Shader: 입력된 정점 데이터를 Geometry Shader로 그대로 전달합니다.
-//-------------------------------------------------------------------------------------------------------------------------------------------------
+
 GS_BILLBOARD_INPUT VSBillboard(VS_BILLBOARD_INPUT input)
 {
 	GS_BILLBOARD_INPUT output;
@@ -387,29 +389,23 @@ GS_BILLBOARD_INPUT VSBillboard(VS_BILLBOARD_INPUT input)
 	return output;
 }
 
-//-------------------------------------------------------------------------------------------------------------------------------------------------
-// Geometry Shader: 정점 하나를 입력받아 카메라를 향하는 사각형(Triangle Strip)을 생성합니다.
-//-------------------------------------------------------------------------------------------------------------------------------------------------
+
 [maxvertexcount(4)]
 void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILLBOARD_INPUT> outputStream)
 {
-    // 빌보드의 크기 (가로, 세로)
-	float2 size = float2(8.0f, 8.0f); // 이 값은 C++에서 상수 버퍼로 넘겨주는 것이 더 유연합니다.
+   
+	float2 size = float2(8.0f, 8.0f);
 
-    // 카메라의 Up 벡터와 Right 벡터를 뷰 역행렬에서 추출
-    // gmtxInverseView는 cbCameraInfo에 정의되어 있습니다.
-	// Y축 고정 빌보드 (Cylindrical Billboard)
+	
 	float3 up = float3(0.0f, 1.0f, 0.0f);
 	float3 right = normalize(float3(gmtxInverseView._11, 0.0f, gmtxInverseView._13));
 
-    // 사각형의 네 꼭짓점 위치 계산
 	float3 positions[4];
-	positions[0] = input[0].position + (-right * size.x) + (up * size.y); // Top-Left
-	positions[1] = input[0].position + (right * size.x) + (up * size.y);  // Top-Right
-	positions[2] = input[0].position + (-right * size.x) - (up * size.y); // Bottom-Left
-	positions[3] = input[0].position + (right * size.x) - (up * size.y);  // Bottom-Right
+	positions[0] = input[0].position + (-right * size.x) + (up * size.y);
+	positions[1] = input[0].position + (right * size.x) + (up * size.y);
+	positions[2] = input[0].position + (-right * size.x) - (up * size.y);
+	positions[3] = input[0].position + (right * size.x) - (up * size.y);
 
-    // UV 좌표
 	float2 uvs[4] =
 	{
 		float2(0.0f, 0.0f),
@@ -420,11 +416,10 @@ void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILL
 
 	PS_BILLBOARD_INPUT output;
 	
-    // 4개의 정점을 Triangle Strip으로 출력
 	[unroll]
 	for (int i = 0; i < 4; i++)
 	{
-		output.position = float4(positions[i], 1.0f); // 월드 변환이 이미 적용된 꼭지점이므로 gmtxGameObject 곱셈 제거
+		output.position = float4(positions[i], 1.0f);
 		output.position = mul(output.position, gmtxView);
 		output.position = mul(output.position, gmtxProjection);
 		output.uv = uvs[i];
@@ -434,22 +429,14 @@ void GSBillboard(point GS_BILLBOARD_INPUT input[1], inout TriangleStream<PS_BILL
 	outputStream.RestartStrip();
 }
 
-//-------------------------------------------------------------------------------------------------------------------------------------------------
-// Pixel Shader: 텍스처를 샘플링하고 알파값이 낮은 픽셀을 버립니다.
-//-------------------------------------------------------------------------------------------------------------------------------------------------
 float4 PSBillboard(PS_BILLBOARD_INPUT input) : SV_TARGET
 {
-	float4 color = gtxtBillboard.Sample(gssWrap, input.uv); // gssWrap (s0) 샘플러 재사용
+	float4 color = gtxtBillboard.Sample(gssWrap, input.uv);
     
-    // 알파 값이 0.1보다 작으면 픽셀을 그리지 않음 (Alpha Test)
-	clip(color.a - 0.1f);
 	
 	return color;
 }
 
-//=================================================================================================================================================
-// EXPLOSION SHADERS
-//=================================================================================================================================================
 
 #define EXP_FRAME_COLS 8
 #define EXP_FRAME_ROWS 8
@@ -467,16 +454,14 @@ struct GS_PS_INPUT
 	uint   frame    : TEXCOORD1;
 };
 
-// Vertex Shader: Pass vertex position and frame index to the Geometry Shader
 VS_GS_INPUT VS_Explosion(float3 position : POSITION)
 {
     VS_GS_INPUT output;
     output.position = mul(float4(position, 1.0f), gmtxGameObject).xyz;
-    output.frame = gnTexturesMask; // Re-using gnTexturesMask from cbGameObjectInfo as the frame index
+    output.frame = gnTexturesMask; 
     return output;
 }
 
-// Geometry Shader: Generate a quad billboard facing the camera from a single point
 [maxvertexcount(4)]
 void GS_Explosion(point VS_GS_INPUT input[1], inout TriangleStream<GS_PS_INPUT> outputStream)
 {

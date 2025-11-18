@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "UIRectMesh.h"
 
 CUIRectMesh::CUIRectMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, float x, float y, float width, float height) : CMesh(pd3dDevice, pd3dCommandList)
@@ -11,17 +11,17 @@ CUIRectMesh::CUIRectMesh(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd
     m_normalizedWidth = width;
     m_normalizedHeight = height;
 
-    // Convert normalized screen coordinates [0,1] to NDC [-1,1]
+    
     float ndcX = (x * 2.0f) - 1.0f;
-    float ndcY = 1.0f - (y * 2.0f); // Y-axis is inverted
+    float ndcY = 1.0f - (y * 2.0f);
     float ndcWidth = width * 2.0f;
     float ndcHeight = height * 2.0f;
 
     m_pxmf3Positions = new XMFLOAT3[m_nVertices];
-    m_pxmf3Positions[0] = XMFLOAT3(ndcX, ndcY, 0.0f); // Top-left
-    m_pxmf3Positions[1] = XMFLOAT3(ndcX + ndcWidth, ndcY, 0.0f); // Top-right
-    m_pxmf3Positions[2] = XMFLOAT3(ndcX + ndcWidth, ndcY - ndcHeight, 0.0f); // Bottom-right
-    m_pxmf3Positions[3] = XMFLOAT3(ndcX, ndcY - ndcHeight, 0.0f); // Bottom-left
+    m_pxmf3Positions[0] = XMFLOAT3(ndcX, ndcY, 0.0f); 
+    m_pxmf3Positions[1] = XMFLOAT3(ndcX + ndcWidth, ndcY, 0.0f); 
+    m_pxmf3Positions[2] = XMFLOAT3(ndcX + ndcWidth, ndcY - ndcHeight, 0.0f); 
+    m_pxmf3Positions[3] = XMFLOAT3(ndcX, ndcY - ndcHeight, 0.0f); 
 
     m_pxmf2TextureCoords0 = new XMFLOAT2[m_nVertices];
     m_pxmf2TextureCoords0[0] = XMFLOAT2(0.0f, 0.0f);

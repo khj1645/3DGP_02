@@ -268,13 +268,13 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	pStartButtonMaterial->SetShader(pUIShader);
 	m_pStartButtonObject->SetMaterial(0, pStartButtonMaterial);
 
-	m_pStartButtonHoverObject = new CGameObject(1, 1);
+	m_pStartButtonSelectedObject = new CGameObject(1, 1);
 	CUIRectMesh* pStartButtonHoverMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.05f - (0.2f * 0.05f), 0.35f - (0.2f * 0.05f), 0.2f * 1.1f, 0.2f * 1.1f);
-	m_pStartButtonHoverObject->SetMesh(0, pStartButtonHoverMesh);
+	m_pStartButtonSelectedObject->SetMesh(0, pStartButtonHoverMesh);
 	CMaterial* pStartButtonHoverMaterial = new CMaterial();
 	pStartButtonHoverMaterial->SetTexture(m_pStartButtonDefaultTexture);
 	pStartButtonHoverMaterial->SetShader(pUIShader);
-	m_pStartButtonHoverObject->SetMaterial(0, pStartButtonHoverMaterial);
+	m_pStartButtonSelectedObject->SetMaterial(0, pStartButtonHoverMaterial);
 
 	m_pExitButtonObject = new CGameObject(1, 1);
 	CUIRectMesh* pExitButtonMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.75f, 0.35f, 0.2f, 0.2f);
@@ -290,13 +290,13 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	pExitButtonMaterial->SetShader(pUIShader);
 	m_pExitButtonObject->SetMaterial(0, pExitButtonMaterial);
 
-	m_pExitButtonHoverObject = new CGameObject(1, 1);
+	m_pExitButtonSelectedObject = new CGameObject(1, 1);
 	CUIRectMesh* pExitButtonHoverMesh = new CUIRectMesh(pd3dDevice, pd3dCommandList, 0.75f - (0.2f * 0.05f), 0.35f - (0.2f * 0.05f), 0.2f * 1.1f, 0.2f * 1.1f);
-	m_pExitButtonHoverObject->SetMesh(0, pExitButtonHoverMesh);
+	m_pExitButtonSelectedObject->SetMesh(0, pExitButtonHoverMesh);
 	CMaterial* pExitButtonHoverMaterial = new CMaterial();
 	pExitButtonHoverMaterial->SetTexture(m_pExitButtonDefaultTexture);
 	pExitButtonHoverMaterial->SetShader(pUIShader);
-	m_pExitButtonHoverObject->SetMaterial(0, pExitButtonHoverMaterial);
+	m_pExitButtonSelectedObject->SetMaterial(0, pExitButtonHoverMaterial);
 
 	// Create UI for enemy count
 	// 1) Load number texture (0-9 texture sheet)
@@ -311,11 +311,10 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 	m_pNumberMaterial->SetTexture(m_pNumberTexture);
 	m_pNumberMaterial->SetShader(pUIShader); // Reuse the same CUIShader
 
-	// 3) Create digit objects (e.g., 3 digits on the top-right of the screen)
 	float digitWidth = 0.05f;
 	float digitHeight = 0.08f;
-	// Base position in normalized coordinates [0,1] (Top-Left is 0,0)
-	float baseX = 0.83f; // Near top-right
+	
+	float baseX = 0.83f;
 	float baseY = 0.05f;
 
 	for (int i = 0; i < m_nMaxEnemyDigits; i++)
@@ -361,25 +360,21 @@ void CScene::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* p
 		m_ppBillboardObjects[i] = pBillboardObject;
 	}
 
-	// Bullet Resources
 	m_pBulletMesh = new CCubeMesh(pd3dDevice, pd3dCommandList, 3.0f, 2.0f, 3.0f);
 	m_pBulletMesh->AddRef();
 	m_pBulletMaterial = new CMaterial();
 	m_pBulletMaterial->AddRef();
 	m_pBulletMaterial->m_xmf4AlbedoColor = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f); 
-	m_pBulletMaterial->SetShader(pObjectsShader); //Reuse the standard object shader
+	m_pBulletMaterial->SetShader(pObjectsShader); 
 
-	// 1. Explosion Resources
-	// 1.1. Create Explosion Shader
 	m_pExplosionShader = new CExplosionShader();
 	m_pExplosionShader->AddRef();
 	m_pExplosionShader->CreateShader(pd3dDevice, pd3dCommandList, m_pd3dGraphicsRootSignature);
 	m_ppShaders[4] = m_pExplosionShader;
 
-	// 1.2. Load Texture and Create Material
 	CTexture* pExplosionTexture = new CTexture(1, RESOURCE_TEXTURE2D, 0, 1);
 	pExplosionTexture->LoadTextureFromDDSFile(pd3dDevice, pd3dCommandList, L"Image/Effect.dds", RESOURCE_TEXTURE2D, 0);
-	CScene::CreateShaderResourceView(pd3dDevice, pExplosionTexture, 0, 3); // Assuming root parameter 3 is for albedo
+	CScene::CreateShaderResourceView(pd3dDevice, pExplosionTexture, 0, 3); 
 
 	m_pExplosionMaterial = new CMaterial();
 	m_pExplosionMaterial->AddRef();
@@ -446,8 +441,8 @@ void CScene::ReleaseObjects()
 
 	if (m_pStartButtonObject) m_pStartButtonObject->Release();
 	if (m_pExitButtonObject) m_pExitButtonObject->Release();
-	if (m_pStartButtonHoverObject) m_pStartButtonHoverObject->Release();
-	if (m_pExitButtonHoverObject) m_pExitButtonHoverObject->Release();
+	if (m_pStartButtonSelectedObject) m_pStartButtonSelectedObject->Release();
+	if (m_pExitButtonSelectedObject) m_pExitButtonSelectedObject->Release();
 	if (m_pBackgroundObject) m_pBackgroundObject->Release();
 
 	if (m_pMainMenuObject) m_pMainMenuObject->Release();
@@ -483,7 +478,7 @@ void CScene::ReleaseObjects()
 	if (m_pBulletMesh) m_pBulletMesh->Release();
 	if (m_pBulletMaterial) m_pBulletMaterial->Release();
 
-	// Release explosion resources
+	
 	for (auto pExplosion : m_vExplosions)
 	{
 		if (pExplosion) pExplosion->Release();
@@ -714,7 +709,6 @@ ID3D12RootSignature* CScene::CreateGraphicsRootSignature(ID3D12Device* pd3dDevic
 	if (FAILED(hr)) {
 		OutputDebugString(L"D3D12SerializeRootSignature FAILED!\n");
 		if (pd3dErrorBlob) {
-			OutputDebugStringA((char*)pd3dErrorBlob->GetBufferPointer());
 			pd3dErrorBlob->Release();
 		}
 		return NULL; // Or handle more gracefully
@@ -786,11 +780,11 @@ bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam,
 		{
 		case WM_LBUTTONDOWN:
 		{
-			if (m_pHoveredObject == m_pStartButtonObject)
+			if (m_pSelectedObject == m_pStartButtonObject)
 			{
 				m_pGameFramework->SetGameState(GameState::InGame);
 			}
-			else if (m_pHoveredObject == m_pExitButtonObject)
+			else if (m_pSelectedObject == m_pExitButtonObject)
 			{
 				PostQuitMessage(0);
 			}
@@ -806,7 +800,7 @@ bool CScene::OnProcessingMouseMessage(HWND hWnd, UINT nMessageID, WPARAM wParam,
 
 			XMFLOAT3 pickPos = XMFLOAT3(ndcX, ndcY, 0.0f);
 
-			m_pHoveredObject = PickObjectByRayIntersection(pickPos, m_pGameFramework->GetCamera()->GetViewMatrix());
+			m_pSelectedObject = PickObjectByRayIntersection(pickPos, m_pGameFramework->GetCamera()->GetViewMatrix());
 			return true;
 		}
 		default:
@@ -851,26 +845,6 @@ void CScene::AnimateObjects(float fTimeElapsed)
 		m_pLights[1].m_xmf3Direction = m_pPlayer->GetLookVector();
 	}
 
-	// Collision Detection
-	if (m_pPlayer && m_ppShaders && m_ppShaders[0])
-	{
-		CObjectsShader* pObjectsShader = dynamic_cast<CObjectsShader*>(m_ppShaders[0]);
-		if (pObjectsShader)
-		{
-			int nObjects = pObjectsShader->GetNumberOfObjects();
-			for (int i = 0; i < nObjects; ++i)
-			{
-				CGameObject* pOtherObject = pObjectsShader->GetObject(i);
-				if (pOtherObject)
-				{
-					if (m_pPlayer->GetWorldAABB().Intersects(pOtherObject->GetWorldAABB()))
-					{
-						pOtherObject->m_bRender = false;
-					}
-				}
-			}
-		}
-	}
 
 	AnimateBullets(fTimeElapsed);
 	AnimateExplosions(fTimeElapsed);
@@ -1026,12 +1000,12 @@ void CScene::SetDigitUV(CGameObject* pDigit, int digit)
 {
 	if (!pDigit) return;
 
-	// 0~9 클램프
+	
 	if (digit < 0) digit = 0;
 	if (digit > 9) digit = 9;
 
 	int col = digit % 5;
-	int row = digit / 5;   // 0: 0~4, 1: 5~9
+	int row = digit / 5;
 
 	const float cellW = 1.0f / 5.0f;
 	const float cellH = 1.0f / 2.0f;
@@ -1041,16 +1015,13 @@ void CScene::SetDigitUV(CGameObject* pDigit, int digit)
 	float v0 = row * cellH;
 	float v1 = v0 + cellH;
 
-	//  두 번째 줄(5~9)의 세로 위치를 약간 위로 당겨서 정렬
-	//   v는 아래로 갈수록 값이 커지므로, 위로 올리려면 '감소'시켜야 함.
 	if (row == 1)
 	{
-		const float vBias = 0.057f;   // -0.02f ~ -0.05f 사이에서 취향대로 튜닝
+		const float vBias = 0.057f;
 		v0 += vBias;
 		v1 += vBias;
 	}
 
-	// 테두리 블리딩 방지 (필요하면 값 더 줄여도 됨)
 	const float epsU = 0.002f;
 	const float epsV = 0.002f;
 	u0 += epsU; u1 -= epsU;
@@ -1064,16 +1035,13 @@ void CScene::UpdateEnemyCountUI()
 {
 	int nCount = GetRemainingEnemyCount();
 
-	// Clamp count to the displayable range (0-999).
 	if (nCount < 0) nCount = 0;
 	if (nCount > 999) nCount = 999;
 
-	// Decompose the count into hundreds, tens, and ones digits.
-	int d2 = (nCount / 100) % 10; // Hundreds
-	int d1 = (nCount / 10) % 10;  // Tens
-	int d0 = nCount % 10;        // Ones
+	int d2 = (nCount / 100) % 10; 
+	int d1 = (nCount / 10) % 10; 
+	int d0 = nCount % 10;
 
-	// Update each digit's UV coordinates to display the correct number.
 	if (m_pEnemyCountDigits[0]) SetDigitUV(m_pEnemyCountDigits[0], d2);
 	if (m_pEnemyCountDigits[1]) SetDigitUV(m_pEnemyCountDigits[1], d1);
 	if (m_pEnemyCountDigits[2]) SetDigitUV(m_pEnemyCountDigits[2], d0);
@@ -1085,7 +1053,6 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 {
 	if (m_pGameFramework->GetGameState() == GameState::MainMenu)
 	{
-		// ... (MainMenu rendering code remains the same)
 		if (m_pGameFramework->GetCamera()) m_pGameFramework->GetCamera()->SetViewportsAndScissorRects(pd3dCommandList);
 
 		if (m_pBackgroundObject)
@@ -1102,18 +1069,18 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 			CUIShader* pUIShader = (CUIShader*)m_ppShaders[1];
 			pd3dCommandList->SetGraphicsRootSignature(pUIShader->GetGraphicsRootSignature());
 
-			if (m_pHoveredObject == m_pStartButtonObject)
+			if (m_pSelectedObject == m_pStartButtonObject)
 			{
-				if (m_pStartButtonHoverObject) m_pStartButtonHoverObject->Render(pd3dCommandList, NULL);
+				if (m_pStartButtonSelectedObject) m_pStartButtonSelectedObject->Render(pd3dCommandList, NULL);
 			}
 			else
 			{
 				if (m_pStartButtonObject) m_pStartButtonObject->Render(pd3dCommandList, NULL);
 			}
 
-			if (m_pHoveredObject == m_pExitButtonObject)
+			if (m_pSelectedObject == m_pExitButtonObject)
 			{
-				if (m_pExitButtonHoverObject) m_pExitButtonHoverObject->Render(pd3dCommandList, NULL);
+				if (m_pExitButtonSelectedObject) m_pExitButtonSelectedObject->Render(pd3dCommandList, NULL);
 			}
 			else
 			{
@@ -1121,21 +1088,17 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 			}
 		}
 	}
-	else // InGame state
+	else 
 	{
-		// Common setup
 		pd3dCommandList->SetGraphicsRootSignature(m_pd3dGraphicsRootSignature);
 		ID3D12DescriptorHeap* ppHeaps[] = { m_pDescriptorHeap->m_pd3dCbvSrvDescriptorHeap };
 		pd3dCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 		pCamera->SetViewportsAndScissorRects(pd3dCommandList);
 		pCamera->UpdateShaderVariables(pd3dCommandList);
-		UpdateShaderVariables(pd3dCommandList); // Updates lights
+		UpdateShaderVariables(pd3dCommandList); 
 		D3D12_GPU_VIRTUAL_ADDRESS d3dcbLightsGpuVirtualAddress = m_pd3dcbLights->GetGPUVirtualAddress();
 		pd3dCommandList->SetGraphicsRootConstantBufferView(2, d3dcbLightsGpuVirtualAddress);
 
-		//if (m_pMirrorShader)  
-		//	m_pMirrorShader->RenderBackDepth(pd3dCommandList, pCamera);
-		// PASS 0: Render scene normally (excluding the mirror surface itself)
 		if (m_pSkyBox) m_pSkyBox->Render(pd3dCommandList, pCamera);
 		if (m_pTerrain) m_pTerrain->Render(pd3dCommandList, pCamera);
 		if (m_pBuildingObject) m_pBuildingObject->Render(pd3dCommandList, pCamera);
@@ -1149,20 +1112,15 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 		if (m_pWater) m_pWater->Render(pd3dCommandList, pCamera);
 		RenderExplosions(pd3dCommandList, pCamera);
 
-		// --- MIRROR RENDERING PASSES ---
 		if (m_pMirrorShader)
 		{
-			// PASS 1: Create Stencil Mask
+	
 			m_pMirrorShader->PreRender(pd3dCommandList, pCamera);
 
-			// PASS 2 & 3: Setup reflection state and render reflected objects
 			m_pMirrorShader->RenderReflectedObjects(pd3dCommandList, pCamera);
 
-			// PASS 4 & 5: Restore state and render mirror surface
 			m_pMirrorShader->PostRender(pd3dCommandList, pCamera);
 		}
-
-		// --- UI RENDERING ---
 		UpdateEnemyCountUI();
 		CUIShader* pUIShader = dynamic_cast<CUIShader*>(m_ppShaders[1]);
 		if (pUIShader)
@@ -1188,17 +1146,19 @@ void CScene::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera
 
 
 void CScene::SpawnExplosion(const XMFLOAT3& position)
-
 {
-
-	CExplosionObject* pExplosion = m_vExplosions[m_nNextExplosion];
-
-	pExplosion->Start(position);
-
-
-
-	m_nNextExplosion = (m_nNextExplosion + 1) % m_vExplosions.size();
-
+	// Find an inactive explosion from the pool
+	for (int i = 0; i < m_vExplosions.size(); ++i)
+	{
+		int index = (m_nNextExplosion + i) % m_vExplosions.size();
+		CExplosionObject* pExplosion = m_vExplosions[index];
+		if (pExplosion && !pExplosion->IsAlive())
+		{
+			pExplosion->Start(position);
+			m_nNextExplosion = (index + 1) % m_vExplosions.size();
+			return; // Found and started an explosion, so exit
+		}
+	}
 }
 
 

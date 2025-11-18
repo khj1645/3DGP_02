@@ -110,19 +110,9 @@ void CWaterShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandL
     d3dRasterizerDesc.CullMode = D3D12_CULL_MODE_FRONT; // Cull front faces for reflection
     d3dPipelineStateDesc.RasterizerState = d3dRasterizerDesc;
 
-    D3D12_DEPTH_STENCIL_DESC d3dDepthStencilDesc = CreateDepthStencilState();
-    d3dDepthStencilDesc.StencilEnable = TRUE;
-    d3dDepthStencilDesc.StencilReadMask = 0xFF;
-    d3dDepthStencilDesc.StencilWriteMask = 0x00;
-    d3dDepthStencilDesc.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-    d3dDepthStencilDesc.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-    d3dDepthStencilDesc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-    d3dDepthStencilDesc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
-    d3dDepthStencilDesc.BackFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
-    d3dDepthStencilDesc.BackFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
-    d3dDepthStencilDesc.BackFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-    d3dDepthStencilDesc.BackFace.StencilFunc = D3D12_COMPARISON_FUNC_NEVER;
-    d3dPipelineStateDesc.DepthStencilState = d3dDepthStencilDesc;
+    d3dRasterizerDesc.FrontCounterClockwise = TRUE;
+    d3dPipelineStateDesc.RasterizerState = d3dRasterizerDesc;
+    d3dPipelineStateDesc.DepthStencilState = CreateReflectionStencilState();
 
     pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[1]);
 

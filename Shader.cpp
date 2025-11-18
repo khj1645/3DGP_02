@@ -1,4 +1,4 @@
-//-----------------------------------------------------------------------------
+﻿//-----------------------------------------------------------------------------
 // File: Shader.cpp
 //-----------------------------------------------------------------------------
 
@@ -53,8 +53,6 @@ D3D12_SHADER_BYTECODE CShader::CompileShaderFromFile(WCHAR* pszFileName, LPCSTR 
 		char* pErrorString = NULL;
 		if (pd3dErrorBlob)
 		{
-			pErrorString = (char*)pd3dErrorBlob->GetBufferPointer();
-			OutputDebugStringA(pErrorString); // Debug 출력으로 오류 메시지 출력
 			pd3dErrorBlob->Release();
 		}
 		// 오류 발생 시 빈 바이트코드 반환 또는 예외 처리
@@ -174,15 +172,14 @@ D3D12_DEPTH_STENCIL_DESC CShader::CreateReflectionStencilState()
 {
 	D3D12_DEPTH_STENCIL_DESC d = CreateDepthStencilState();
 
-	//  반사 패스에서는 깊이는 읽기만 하고, 쓰지는 않는다
-	d.DepthEnable = TRUE;
-	d.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-	d.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; // 약간 여유를 줘도 됨
 
-	//  스텐실: 거울 마스크 == 1 인 곳만 패스
+	d.DepthEnable = TRUE;
+	d.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	d.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL; 
+
 	d.StencilEnable = TRUE;
 	d.StencilReadMask = 0xff;
-	d.StencilWriteMask = 0x00; // 읽기 전용
+	d.StencilWriteMask = 0x00; 
 
 	d.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_EQUAL;
 	d.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
@@ -325,7 +322,6 @@ void CSkyBoxShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommand
 	m_d3dPipelineStateDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
 	HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, __uuidof(ID3D12PipelineState), (void**)&m_ppd3dPipelineStates[0]);
-	// PSO[1]: Reflected Skybox (Cull Back)
 	{
 		D3D12_DEPTH_STENCIL_DESC ds = {};
 		ds.DepthEnable = FALSE;                          
@@ -344,7 +340,7 @@ void CSkyBoxShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommand
 		m_d3dPipelineStateDesc.DepthStencilState = ds;
 
 		D3D12_RASTERIZER_DESC rs = CreateRasterizerState();
-		rs.CullMode = D3D12_CULL_MODE_BACK;             // 반사 카메라 기준 winding 보정용
+		rs.CullMode = D3D12_CULL_MODE_BACK;
 		m_d3dPipelineStateDesc.RasterizerState = rs;
 
 		pd3dDevice->CreateGraphicsPipelineState(&m_d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[1]));
@@ -582,7 +578,7 @@ void CObjectsShader::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsComman
 				pSuperCobraModel->AddRef();
 				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
 			}
-			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(80.0f, 250.0f), h - int(floor(nColumnSize / 2.0f)), nColumnSpace);
+			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(80.0f, 180.0f), h - int(floor(nColumnSize / 2.0f)), nColumnSpace);
 			m_ppObjects[nObjects]->SetPosition(xmf3RandomPosition.x, xmf3RandomPosition.y + 750.0f, xmf3RandomPosition.z);
 			m_ppObjects[nObjects]->Rotate(0.0f, 90.0f, 0.0f);
 			m_ppObjects[nObjects++]->PrepareAnimate();
@@ -607,7 +603,7 @@ void CObjectsShader::BuildObjects(ID3D12Device* pd3dDevice, ID3D12GraphicsComman
 				pGunshipModel->AddRef();
 				m_ppObjects[nObjects]->SetLocalAABB(XMFLOAT3(-2.0f, -0.5f, -9.0f), XMFLOAT3(2.0f, 4.0f, 7.5f));
 			}
-			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(80.0f, 250.0f), nColumnSize - int(floor(nColumnSize / 2.0f)), nColumnSpace);
+			XMFLOAT3 xmf3RandomPosition = RandomPositionInSphere(XMFLOAT3(920.0f, 0.0f, 1200.0f), Random(80.0f, 150.0f), nColumnSize - int(floor(nColumnSize / 2.0f)), nColumnSpace);
 			m_ppObjects[nObjects]->SetPosition(xmf3RandomPosition.x, xmf3RandomPosition.y + 850.0f, xmf3RandomPosition.z);
 			m_ppObjects[nObjects]->Rotate(0.0f, 90.0f, 0.0f);
 			m_ppObjects[nObjects++]->PrepareAnimate();
@@ -755,19 +751,11 @@ void CPlayerShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommand
 	d3dPipelineStateDesc.DepthStencilState = CreateDepthStencilState();
 	d3dPipelineStateDesc.RasterizerState = CreateRasterizerState();
 	HRESULT hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[0]));
-	if (FAILED(hResult))
-	{
-		::MessageBox(NULL, L"CPlayerShader::CreateShader() - FAILED Opaque PipelineState!", L"Error", MB_OK);
-	}
 
 	// PSO[1]: Blending
 	d3dPipelineStateDesc.BlendState = CreatePlayerBlendState();
 	d3dPipelineStateDesc.DepthStencilState = CreatePlayerDepthStencilState();
 	hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[1]));
-	if (FAILED(hResult))
-	{
-		::MessageBox(NULL, L"CPlayerShader::CreateShader() - FAILED Blending PipelineState!", L"Error", MB_OK);
-	}
 
 	// PSO[2]: Reflection (based on Opaque)
 	d3dPipelineStateDesc.BlendState = CreateBlendState();
@@ -776,10 +764,6 @@ void CPlayerShader::CreateShader(ID3D12Device* pd3dDevice, ID3D12GraphicsCommand
 	d3dRasterizerDesc.FrontCounterClockwise = TRUE;
 	d3dPipelineStateDesc.RasterizerState = d3dRasterizerDesc;
 	hResult = pd3dDevice->CreateGraphicsPipelineState(&d3dPipelineStateDesc, IID_PPV_ARGS(&m_ppd3dPipelineStates[2]));
-	if (FAILED(hResult))
-	{
-		::MessageBox(NULL, L"CPlayerShader::CreateShader() - FAILED Reflection PipelineState!", L"Error", MB_OK);
-	}
 
 
 	if (d3dPipelineStateDesc.InputLayout.pInputElementDescs)

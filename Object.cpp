@@ -100,9 +100,6 @@ void CTexture::ReleaseUploadBuffers()
 		{
 			if (m_ppd3dTextureUploadBuffers[i])
 			{
-				TCHAR buffer[256];
-				_stprintf_s(buffer, L"Releasing Upload Buffer[%d]: %p\n", i, m_ppd3dTextureUploadBuffers[i]);
-				OutputDebugString(buffer);
 
 				m_ppd3dTextureUploadBuffers[i]->Release();
 				m_ppd3dTextureUploadBuffers[i] = NULL; // Set to NULL after releasing
@@ -115,21 +112,10 @@ void CTexture::ReleaseUploadBuffers()
 
 void CTexture::LoadTextureFromDDSFile(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, wchar_t* pszFileName, UINT nResourceType, UINT nIndex)
 {
-	TCHAR buffer[256];
-	_stprintf_s(buffer, L"CTexture::LoadTextureFromDDSFile() - Attempting to load texture: %s at index %d\n", pszFileName, nIndex);
-	OutputDebugString(buffer);
 
 	m_pnResourceTypes[nIndex] = nResourceType;
 	m_ppd3dTextures[nIndex] = ::CreateTextureResourceFromDDSFile(pd3dDevice, pd3dCommandList, pszFileName, &m_ppd3dTextureUploadBuffers[nIndex], D3D12_RESOURCE_STATE_GENERIC_READ/*D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE*/);
 
-	if (m_ppd3dTextures[nIndex]) {
-		_stprintf_s(buffer, L"CTexture::LoadTextureFromDDSFile() - Successfully loaded texture: %s (Resource: %p)\n", pszFileName, m_ppd3dTextures[nIndex]);
-		OutputDebugString(buffer);
-	}
-	else {
-		_stprintf_s(buffer, L"CTexture::LoadTextureFromDDSFile() - FAILED to load texture: %s\n", pszFileName);
-		OutputDebugString(buffer);
-	}
 }
 
 void CTexture::LoadBuffer(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, void* pData, UINT nElements, UINT nStride, DXGI_FORMAT ndxgiFormat, UINT nIndex)
@@ -260,16 +246,10 @@ D3D12_SHADER_RESOURCE_VIEW_DESC CTexture::GetShaderResourceViewDesc(int nIndex)
 //
 CMaterial::CMaterial()
 {
-	TCHAR buffer[256];
-	_stprintf_s(buffer, L"CMaterial::CMaterial() - Created %p\n", this);
-	OutputDebugString(buffer);
 }
 
 CMaterial::~CMaterial()
 {
-	TCHAR buffer[256];
-	_stprintf_s(buffer, L"CMaterial::~CMaterial() - Destroyed %p\n", this);
-	OutputDebugString(buffer);
 
 	if (m_pTexture) m_pTexture->Release();
 	if (m_pShader) m_pShader->Release();
@@ -376,21 +356,17 @@ void CGameObject::AddRef()
 
 void CGameObject::Release()
 {
-	// TCHAR buffer[256];
-	// _stprintf_s(buffer, L"CGameObject::Release() called on %p. m_nReferences: %d\n", this, m_nReferences);
-	// OutputDebugString(buffer);
+
 
 	if (m_pSibling) m_pSibling->Release();
 	if (m_pChild) m_pChild->Release();
 
 	int nNewReferences = --m_nReferences;
-	// _stprintf_s(buffer, L"CGameObject::Release() on %p. New m_nReferences: %d\n", this, nNewReferences);
-	// OutputDebugString(buffer);
+
 
 	if (nNewReferences <= 0)
 	{
-		// _stprintf_s(buffer, L"CGameObject::Release() deleting %p\n", this);
-		// OutputDebugString(buffer);
+
 		delete this;
 	}
 }
@@ -526,9 +502,7 @@ void CGameObject::ReleaseShaderVariables()
 
 void CGameObject::ReleaseUploadBuffers()
 {
-	TCHAR buffer[256];
-	_stprintf_s(buffer, L"CGameObject::ReleaseUploadBuffers() START on %p. m_nMaterials: %d, m_ppMaterials: %p\n", this, m_nMaterials, m_ppMaterials);
-	OutputDebugString(buffer);
+
 
 	for (int i = 0; i < m_nMeshes; i++)
 	{
@@ -537,14 +511,9 @@ void CGameObject::ReleaseUploadBuffers()
 
 	for (int i = 0; i < m_nMaterials; i++)
 	{
-		_stprintf_s(buffer, L"CGameObject::ReleaseUploadBuffers() on %p - Accessing m_ppMaterials[%d]: %p\n", this, i, m_ppMaterials[i]);
-		OutputDebugString(buffer);
-
 		if (m_ppMaterials[i]) m_ppMaterials[i]->ReleaseUploadBuffers();
 	}
 
-	_stprintf_s(buffer, L"CGameObject::ReleaseUploadBuffers() END on %p\n", this);
-	OutputDebugString(buffer);
 
 	if (m_pSibling) m_pSibling->ReleaseUploadBuffers();
 	if (m_pChild) m_pChild->ReleaseUploadBuffers();
@@ -930,9 +899,8 @@ void CBullet::Animate(float fTimeElapsed, XMFLOAT4X4* pxmf4x4Parent)
 	CGameObject::Animate(fTimeElapsed, pxmf4x4Parent);
 }
 
-CExplosionObject::CExplosionObject() : CGameObject(1, 1) // 1 mesh, 1 material
+CExplosionObject::CExplosionObject() : CGameObject(1, 1)
 {
-	// The mesh and material will be set later by the Scene
 }
 
 CExplosionObject::~CExplosionObject() {}
@@ -946,8 +914,6 @@ void CExplosionObject::Start(const XMFLOAT3& xmf3Position)
 	m_bRender = true;
 	m_fAge = 0.0f;
 	m_nCurrentFrame = 0;
-
-	// We'll reuse the m_nType field of CMaterial to pass the frame index.
 	if (m_ppMaterials[0]) m_ppMaterials[0]->m_nType = m_nCurrentFrame;
 }
 
@@ -965,7 +931,6 @@ void CExplosionObject::Animate(float fTimeElapsed, XMFLOAT4X4* pxmf4x4Parent)
 			m_bIsAlive = false;
 			m_bRender = false;
 		}
-		// Use a field in CMaterial to store the frame index
 		if (m_ppMaterials[0]) m_ppMaterials[0]->m_nType = m_nCurrentFrame;
 	}
 
@@ -1029,7 +994,7 @@ void CSkyBox::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamer
 {
 	XMFLOAT3 xmf3CameraPos = pCamera->GetPosition();
 	SetPosition(xmf3CameraPos.x, xmf3CameraPos.y, xmf3CameraPos.z);
-
+	Rotate(0, 180, 0);
 	CGameObject::Render(pd3dCommandList, pCamera, nPipelineState);
 }
 
@@ -1240,20 +1205,8 @@ void CGameObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pC
 	if (m_pChild) m_pChild->Render(pd3dCommandList, pCamera, xmmtxReflection);
 }
 
-void CSkyBox::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection)
-{
-	XMFLOAT3 xmf3CameraPos = pCamera->GetPosition();
-	SetPosition(xmf3CameraPos.x, xmf3CameraPos.y, xmf3CameraPos.z);
 
-	CGameObject::Render(pd3dCommandList, pCamera, xmmtxReflection);
-}
-void CSkyBox::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection, int nPipelineState)
-{
-	XMFLOAT3 xmf3CameraPos = pCamera->GetPosition();
-	SetPosition(xmf3CameraPos.x, xmf3CameraPos.y, xmf3CameraPos.z);
 
-	CGameObject::Render(pd3dCommandList, pCamera, nPipelineState);
-}
 void CHeightMapTerrain::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection)
 {
 	

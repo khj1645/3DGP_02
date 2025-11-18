@@ -59,18 +59,13 @@ public:
 	void AddRef() { m_nReferences++; }
 	void Release()
 	{
-		TCHAR buffer[256];
-		_stprintf_s(buffer, L"CTexture::Release() called on %p. m_nReferences: %d\n", this, m_nReferences);
-		OutputDebugString(buffer);
+
 
 		int nNewReferences = --m_nReferences;
-		_stprintf_s(buffer, L"CTexture::Release() on %p. New m_nReferences: %d\n", this, nNewReferences);
-		OutputDebugString(buffer);
+
 
 		if (nNewReferences <= 0)
 		{
-			_stprintf_s(buffer, L"CTexture::Release() deleting %p\n", this);
-			OutputDebugString(buffer);
 			delete this;
 		}
 	}
@@ -86,7 +81,7 @@ public:
 	ID3D12Resource* CreateTexture(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, UINT nIndex, UINT nResourceType, UINT nWidth, UINT nHeight, UINT nElements, UINT nMipLevels, DXGI_FORMAT dxgiFormat, D3D12_RESOURCE_FLAGS d3dResourceFlags, D3D12_RESOURCE_STATES d3dResourceStates, D3D12_CLEAR_VALUE* pd3dClearValue);
 
 	int LoadTextureFromFile(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, CGameObject* pParent, FILE* pInFile, UINT nIndex);
-	//	int LoadTextureFromFile(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, CGameObject* pParent, FILE* pInFile, CShader* pShader, UINT nIndex);
+		int LoadTextureFromFile(ID3D12Device* pd3dDevice, ID3D12GraphicsCommandList* pd3dCommandList, CGameObject* pParent, FILE* pInFile, CShader* pShader, UINT nIndex);
 
 	void SetRootParameterIndex(int nIndex, UINT nRootParameterIndex);
 	void SetGpuDescriptorHandle(int nIndex, D3D12_GPU_DESCRIPTOR_HANDLE d3dSrvGpuDescriptorHandle);
@@ -133,18 +128,11 @@ public:
 	void AddRef() { m_nReferences++; }
 	void Release()
 	{
-		TCHAR buffer[256];
-		_stprintf_s(buffer, L"CMaterial::Release() called on %p. m_nReferences: %d\n", this, m_nReferences);
-		OutputDebugString(buffer);
 
 		int nNewReferences = --m_nReferences;
-		_stprintf_s(buffer, L"CMaterial::Release() on %p. New m_nReferences: %d\n", this, nNewReferences);
-		OutputDebugString(buffer);
 
 		if (nNewReferences <= 0)
 		{
-			_stprintf_s(buffer, L"CMaterial::Release() deleting %p\n", this);
-			OutputDebugString(buffer);
 			delete this;
 		}
 	}
@@ -395,8 +383,6 @@ public:
 
 	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera = NULL);
 	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, int nPipelineState);
-	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection);
-	virtual void Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection, int nPipelineState);
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

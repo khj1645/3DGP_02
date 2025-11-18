@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "WaterObject.h"
 #include "Scene.h" // For CScene::CreateShaderResourceViews
 #include "Object.h" // Explicitly include Object.h for CB_GAMEOBJECT_INFO and CGameObject members
@@ -51,5 +51,5 @@ CWaterObject::~CWaterObject()
 
 void CWaterObject::Render(ID3D12GraphicsCommandList* pd3dCommandList, CCamera* pCamera, const XMMATRIX& xmmtxReflection)
 {
-	CGameObject::Render(pd3dCommandList, pCamera, xmmtxReflection, 1); // Use PSO[1] for reflection
+	CGameObject::Render(pd3dCommandList, pCamera, xmmtxReflection, 1); 
 }

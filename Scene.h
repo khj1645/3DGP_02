@@ -120,9 +120,9 @@ public:
 
 	CGameObject* m_pStartButtonObject = NULL;
 	CGameObject* m_pExitButtonObject = NULL;
-	CGameObject* m_pStartButtonHoverObject = NULL; // New: Larger object for start button hover
-	CGameObject* m_pExitButtonHoverObject = NULL; // New: Larger object for exit button hover
-	CGameObject* m_pHoveredObject = NULL; // New: To track currently hovered UI object
+	CGameObject* m_pStartButtonSelectedObject = NULL; // New: Larger object for start button hover
+	CGameObject* m_pExitButtonSelectedObject = NULL; // New: Larger object for exit button hover
+	CGameObject* m_pSelectedObject = NULL; // New: To track currently hovered UI object
 	CTexture* m_pStartButtonDefaultTexture = NULL; // New: Default texture for start button
 	CTexture* m_pExitButtonDefaultTexture = NULL; // New: Default texture for exit button
 	CGameObject* m_pBackgroundObject = NULL; // New: Background object for main menu
